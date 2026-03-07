@@ -1,5 +1,3 @@
-import subprocess, sys
-subprocess.check_call([sys.executable, "-m", "pip", "install", "plotly", "openai", "supabase", "openpyxl", "-q"])
 import os
 import time
 import json
