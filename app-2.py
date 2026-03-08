@@ -654,57 +654,121 @@ def view_pipeline():
     """, unsafe_allow_html=True)
     
     props = st.session_state.properties
-    
-    # Summary strip
-    active = [p for p in props if p['status']=='active']
-    total_aum = sum(p['purchase_price'] for p in props)
-    avg_irr = np.mean([p['irr'] for p in props])
-    
-    c1,c2,c3,c4 = st.columns(4)
-    c1.metric("Total Deals", len(props))
-    c2.metric("AUM Tracked", f"${total_aum/1e6:.1f}M")
-    c3.metric("Portfolio Avg IRR", f"{avg_irr:.1%}")
-    c4.metric("AI Accuracy Rate", f"{sum(1 for p in props if p.get('ai_correct'))/len(props):.0%}")
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Table header
-    st.markdown("""
-    <div style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.2fr; 
-         padding:10px 16px; background:#f8fafc; border-radius:8px 8px 0 0;
-         border:1px solid #e2e8f0; font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">
-      <div>Property</div><div>Units</div><div>IRR</div><div>EM</div><div>Score</div><div>Status</div><div>AI Tracking</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    for i, p in enumerate(props):
-        status_cls = {"active":"status-active","closed":"status-closed","watch":"status-watch"}.get(p['status'],"status-active")
-        ai_icon = "✅" if p.get('ai_correct') else "🔄"
-        grade_cls = f"grade-{p['grade'].lower()}"
-        
-        st.markdown(f"""
-        <div style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.2fr;
-             padding:13px 16px; border:1px solid #e2e8f0; border-top:none; font-size:13px;
-             background:#fff; {'border-radius: 0 0 8px 8px;' if i==len(props)-1 else ''}">
-          <div><b style="color:#0f172a;">{p['name']}</b><br><span style="font-size:11px; color:#64748b;">{p.get('address','')}</span></div>
-          <div style="color:#334155; padding-top:4px;">{p['units']}</div>
-          <div style="font-family:'JetBrains Mono'; color:#1d4ed8; font-weight:700; padding-top:4px;">{p['irr']:.1%}</div>
-          <div style="font-family:'JetBrains Mono'; padding-top:4px;">{p['equity_mult']:.2f}x</div>
-          <div style="padding-top:4px;"><span class="grade-badge {grade_cls}" style="font-size:13px; padding:2px 10px;">{p['grade']}</span></div>
-          <div style="padding-top:4px;"><span class="status-pill {status_cls}">{p['status'].upper()}</span></div>
-          <div style="padding-top:4px; font-size:12px;">{ai_icon} {'On target' if p.get('ai_correct') else 'Recalibrating'}</div>
+
+    # Empty state
+    if not props:
+        st.markdown("""
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center;
+             min-height:50vh; text-align:center;">
+          <div style="font-size:48px; margin-bottom:16px;">📋</div>
+          <div style="font-size:22px; font-weight:800; color:#0f172a; margin-bottom:8px;">No Deals in Pipeline</div>
+          <div style="font-size:14px; color:#64748b; max-width:380px; line-height:1.6;">
+            Add your first deal by entering details below. Once added, it will appear here
+            and you can load it into the dashboard for full analysis.
+          </div>
         </div>
         """, unsafe_allow_html=True)
-        
-    # Load deal into dashboard
+    else:
+        # Summary strip
+        total_aum = sum(p['purchase_price'] for p in props)
+        avg_irr = np.mean([p['irr'] for p in props]) if props else 0
+        correct = sum(1 for p in props if p.get('ai_correct'))
+        accuracy = correct / len(props) if props else 0
+
+        c1,c2,c3,c4 = st.columns(4)
+        c1.metric("Total Deals", len(props))
+        c2.metric("AUM Tracked", f"${total_aum/1e6:.1f}M")
+        c3.metric("Portfolio Avg IRR", f"{avg_irr:.1%}")
+        c4.metric("AI Accuracy Rate", f"{accuracy:.0%}")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        st.markdown("""
+        <div style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.2fr;
+             padding:10px 16px; background:#f8fafc; border-radius:8px 8px 0 0;
+             border:1px solid #e2e8f0; font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">
+          <div>Property</div><div>Units</div><div>IRR</div><div>EM</div><div>Score</div><div>Status</div><div>AI Tracking</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        for i, p in enumerate(props):
+            status_cls = {"active":"status-active","closed":"status-closed","watch":"status-watch"}.get(p['status'],"status-active")
+            ai_icon = "✅" if p.get('ai_correct') else "🔄"
+            grade_cls = f"grade-{p['grade'].lower()}"
+            prop_name = p['name']
+            prop_addr = p.get('address','')
+            prop_units = p['units']
+            prop_irr = f"{p['irr']:.1%}"
+            prop_em = f"{p['equity_mult']:.2f}x"
+            radius = 'border-radius: 0 0 8px 8px;' if i==len(props)-1 else ''
+            ai_label = 'On target' if p.get('ai_correct') else 'Recalibrating'
+            st.markdown(f"""
+            <div style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.2fr;
+                 padding:13px 16px; border:1px solid #e2e8f0; border-top:none; font-size:13px;
+                 background:#fff; {radius}">
+              <div><b style="color:#0f172a;">{prop_name}</b><br><span style="font-size:11px; color:#64748b;">{prop_addr}</span></div>
+              <div style="color:#334155; padding-top:4px;">{prop_units}</div>
+              <div style="font-family:'JetBrains Mono'; color:#1d4ed8; font-weight:700; padding-top:4px;">{prop_irr}</div>
+              <div style="font-family:'JetBrains Mono'; padding-top:4px;">{prop_em}</div>
+              <div style="padding-top:4px;"><span class="grade-badge {grade_cls}" style="font-size:13px; padding:2px 10px;">{p['grade']}</span></div>
+              <div style="padding-top:4px;"><span class="status-pill {status_cls}">{p['status'].upper()}</span></div>
+              <div style="padding-top:4px; font-size:12px;">{ai_icon} {ai_label}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        names = [p['name'] for p in props]
+        sel = st.selectbox("Load Deal into Dashboard", names)
+        if st.button("Load Selected Deal →", type="primary"):
+            chosen = next(p for p in props if p['name'] == sel)
+            st.session_state.deal_data = chosen
+            st.session_state.deal_loaded = True
+            st.session_state.current_view = "Dashboard"
+            st.rerun()
+
+    # ── Add New Deal Form ──
     st.markdown("<br>", unsafe_allow_html=True)
-    names = [p['name'] for p in props]
-    sel = st.selectbox("Load Deal into Dashboard", names)
-    if st.button("Load Selected Deal →", type="primary"):
-        chosen = next(p for p in props if p['name'] == sel)
-        st.session_state.deal_data = chosen
-        st.session_state.current_view = "Dashboard"
-        st.rerun()
+    st.markdown('<div class="glass-panel"><div class="panel-title">+ Add New Deal</div>', unsafe_allow_html=True)
+    with st.form("add_deal_form"):
+        c1, c2, c3 = st.columns(3)
+        deal_name     = c1.text_input("Property Name", placeholder="123 Main St Apartments")
+        deal_address  = c2.text_input("Address", placeholder="123 Main St, Dallas TX")
+        deal_type     = c3.selectbox("Type", ["Multifamily", "Office", "Retail", "Industrial", "Mixed-Use"])
+        c4, c5, c6 = st.columns(3)
+        deal_units    = c4.number_input("Units / Sq Ft", min_value=1, value=100)
+        deal_vintage  = c5.number_input("Vintage Year", min_value=1900, max_value=2030, value=2020)
+        deal_status   = c6.selectbox("Status", ["active", "watch", "closed"])
+        c7, c8, c9 = st.columns(3)
+        purchase_price = c7.number_input("Purchase Price ($)", min_value=0, value=10000000, step=100000)
+        noi_y1         = c8.number_input("NOI Year 1 ($)", min_value=0, value=500000, step=10000)
+        ltv            = c9.slider("LTV (%)", 40, 80, 65) / 100
+        submitted = st.form_submit_button("Add Deal to Pipeline", type="primary", use_container_width=True)
+        if submitted and deal_name:
+            debt = purchase_price * ltv
+            lp_eq = purchase_price * (1 - ltv) * 0.90
+            gp_eq = purchase_price * (1 - ltv) * 0.10
+            cap_rate = noi_y1 / purchase_price if purchase_price else 0
+            est_irr = cap_rate + 0.04
+            est_em = 1.0 + est_irr * 5
+            s, g = score_deal(est_irr, est_em, 0.05)
+            new_prop = {
+                "id": f"prop_{len(st.session_state.properties)+1:03d}",
+                "name": deal_name, "address": deal_address, "units": int(deal_units),
+                "vintage": int(deal_vintage), "type": deal_type, "status": deal_status,
+                "purchase_price": purchase_price, "debt_amount": debt,
+                "lp_equity": lp_eq, "gp_equity": gp_eq, "noi_year1": noi_y1,
+                "irr": est_irr, "equity_mult": est_em, "gp_irr": est_irr * 1.4,
+                "loss_prob": 0.05, "grade": g, "score": s,
+                "acquisition_date": datetime.now().strftime("%Y-%m-%d"),
+                "ai_prediction": est_irr, "ai_correct": True,
+                "lat": 32.7767, "lon": -96.7970, "notes": ""
+            }
+            st.session_state.properties.append(new_prop)
+            st.session_state.deal_data = new_prop
+            st.session_state.deal_loaded = True
+            st.success(f"'{deal_name}' added to pipeline!")
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
 def view_data_room():
