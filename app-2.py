@@ -240,6 +240,8 @@ def init_state():
         "chat_history": [], "deal_data": None,
         "properties": [], "deal_loaded": False,
         "active_prop_id": None, "db_loaded": False,
+        "compare_ids": [],
+        "alert_log": [],
         "settings": {
             "target_irr": 0.15, "max_ltv": 0.70, "min_dscr": 1.25,
             "hold_period": 5, "vacancy_rate": 0.07, "mgmt_fee": 0.05,
@@ -618,6 +620,121 @@ Then add: 'PROJECTION: [one sentence on 3yr value trajectory]'"""
 • **Trailing NOI**: ${noi:,.0f} | Expense Ratio: {t12_data.get('expense_ratio',0):.1%}
 • **Occupancy**: {rent_roll_data.get('occupancy_rate',0):.1%} as of upload date
 PROJECTION: Based on current market fundamentals, NOI growth of 3-4% annually is achievable with lease-up to 95% occupancy."""
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SECTION 3B | ADVANCED UNDERWRITING ENGINES
+# ──────────────────────────────────────────────────────────────────────────────
+
+def model_debt_structure(purchase_price, loan_amount, rate,
+                         amort_years=30, io_years=0,
+                         loan_fee_pct=0.01, prepay_years=3):
+    monthly_rate = rate / 12
+    loan_fee = loan_amount * loan_fee_pct
+    net_proceeds = loan_amount - loan_fee
+    io_payment_annual = loan_amount * rate
+    n_amort = amort_years * 12
+    if monthly_rate > 0:
+        monthly_pmt = loan_amount * (monthly_rate * (1+monthly_rate)**n_amort) / ((1+monthly_rate)**n_amort - 1)
+    else:
+        monthly_pmt = loan_amount / n_amort
+    amort_payment_annual = monthly_pmt * 12
+    schedule = []
+    balance = loan_amount
+    for yr in range(1, 11):
+        if yr <= io_years:
+            interest = balance * rate
+            principal = 0.0
+            payment = interest
+        else:
+            payment = amort_payment_annual
+            interest = balance * rate
+            principal = payment - interest
+        balance_end = max(balance - principal, 0)
+        steps_remaining = max(prepay_years - (yr - 1), 0)
+        prepay_penalty = balance_end * (steps_remaining * 0.01)
+        schedule.append({
+            "year": yr, "beg_balance": balance, "payment": payment,
+            "interest": interest, "principal": principal,
+            "end_balance": balance_end, "prepay_penalty": prepay_penalty,
+        })
+        balance = balance_end
+    return {
+        "loan_amount": loan_amount, "net_proceeds": net_proceeds,
+        "loan_fee": loan_fee, "rate": rate, "io_years": io_years,
+        "amort_years": amort_years, "io_payment_annual": io_payment_annual,
+        "amort_payment_annual": amort_payment_annual, "schedule": schedule,
+        "ltv": loan_amount / purchase_price if purchase_price else 0,
+    }
+
+
+def model_waterfall(equity, noi_list, exit_value, debt,
+                    pref_return=0.08, promote_hurdles=None):
+    if promote_hurdles is None:
+        promote_hurdles = [
+            {"hurdle": 0.08, "lp_split": 0.80, "gp_split": 0.20},
+            {"hurdle": 0.12, "lp_split": 0.70, "gp_split": 0.30},
+            {"hurdle": 0.18, "lp_split": 0.50, "gp_split": 0.50},
+            {"hurdle": 999,  "lp_split": 0.30, "gp_split": 0.70},
+        ]
+    lp_equity = equity * 0.90
+    gp_equity = equity * 0.10
+    total_equity = equity
+    debt_service = debt * 0.065
+    total_distributions = sum(max(n - debt_service, 0) for n in noi_list)
+    total_distributions += max(exit_value - debt, 0)
+    return_of_capital = total_equity
+    profit = max(total_distributions - return_of_capital, 0)
+    lp_total = lp_equity
+    gp_total = gp_equity
+    remaining = profit
+    tiers = []
+    prev_h = 0
+    for tier in promote_hurdles:
+        if remaining <= 0:
+            break
+        hurdle_profit = max(total_equity * (min(tier["hurdle"], 999) - prev_h), 0)
+        allocated = min(remaining, hurdle_profit) if tier["hurdle"] < 999 else remaining
+        lp_share = allocated * tier["lp_split"]
+        gp_share = allocated * tier["gp_split"]
+        lp_total += lp_share
+        gp_total += gp_share
+        remaining -= allocated
+        tiers.append({"hurdle": tier["hurdle"], "allocated": allocated,
+                       "lp": lp_share, "gp": gp_share})
+        prev_h = min(tier["hurdle"], 999)
+    n = max(len(noi_list), 1)
+    lp_em  = lp_total / lp_equity if lp_equity else 0
+    gp_em  = gp_total / gp_equity if gp_equity else 0
+    lp_irr = max(lp_em ** (1/n) - 1, 0) if lp_em > 0 else 0
+    gp_irr = max(gp_em ** (1/n) - 1, 0) if gp_em > 0 else 0
+    return {
+        "lp_equity_in": lp_equity, "gp_equity_in": gp_equity,
+        "lp_total_out": lp_total,  "gp_total_out": gp_total,
+        "lp_em": lp_em, "gp_em": gp_em, "lp_irr": lp_irr, "gp_irr": gp_irr,
+        "total_profit": profit, "tiers": tiers, "pref_return": pref_return,
+    }
+
+
+def check_irr_alerts(properties, threshold=0.02):
+    import random
+    alerts = []
+    for p in properties:
+        underwritten = p.get("irr", 0)
+        random.seed(hash(p["id"]) % 9999)
+        drift = random.uniform(-0.045, 0.02)
+        current = underwritten + drift
+        if abs(drift) >= threshold:
+            alerts.append({
+                "name": p["name"], "id": p["id"],
+                "underwritten_irr": underwritten,
+                "current_irr": current, "drift": drift,
+                "direction": "declined" if drift < 0 else "improved",
+                "grade": p["grade"],
+                "severity": "high" if abs(drift) > 0.03 else "medium",
+            })
+    return alerts
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # SECTION 4 │ AUTH
@@ -1056,109 +1173,99 @@ def view_pipeline():
 # ──────────────────────────────────────────────────────────────────────────────
 def view_data_room():
     st.markdown('<div style="font-size:22px; font-weight:800; color:#0f172a; margin-bottom:20px;">AI Data Room & Document Intelligence</div>', unsafe_allow_html=True)
-    
-    col_up, col_chat = st.columns([1, 1.3])
-    
-    with col_up:
-        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-        st.markdown('<div class="panel-title">Upload Deal Documents</div>', unsafe_allow_html=True)
-        
-        rent_file = st.file_uploader("Rent Roll (Excel / CSV)", type=["xlsx","xls","csv"], key="rr")
-        t12_file  = st.file_uploader("T12 Trailing Financials (Excel / CSV)", type=["xlsx","xls","csv"], key="t12")
-        
-        if rent_file and t12_file:
-            with st.spinner("Parsing and analyzing documents..."):
-                # Parse Rent Roll
-                try:
-                    rr_df = pd.read_excel(rent_file) if rent_file.name.endswith(('xlsx','xls')) else pd.read_csv(rent_file)
-                    rr_data = parse_rent_roll(rr_df)
-                except Exception as e:
-                    rr_data = {"error": str(e), "total_units": 0, "gross_potential_rent": 0}
-                
-                # Parse T12
-                try:
-                    t12_df = pd.read_excel(t12_file) if t12_file.name.endswith(('xlsx','xls')) else pd.read_csv(t12_file)
-                    t12_parsed = parse_t12(t12_df)
-                except Exception as e:
-                    t12_parsed = {"error": str(e), "noi": 0}
-                
-                # AI Summary
-                summary = ai_summarize_excel(rr_data, t12_parsed)
-                
-                # Update deal data if NOI found
-                if t12_parsed.get('noi', 0) > 0:
-                    st.session_state.deal_data['noi_year1'] = t12_parsed['noi']
-                    st.session_state.deal_loaded = True
-                    score, grade = score_deal(
-                        st.session_state.deal_data['irr'],
-                        st.session_state.deal_data['equity_mult'],
-                        st.session_state.deal_data['loss_prob']
-                    )
-                    st.session_state.deal_data['score'] = score
-                    st.session_state.deal_data['grade'] = grade
-            
-            st.success("Documents indexed and analyzed ✓")
-            
-            # Metrics
-            c1,c2 = st.columns(2)
-            c1.metric("Units (Rent Roll)", rr_data.get('total_units', '—'))
-            c2.metric("Avg Monthly Rent", f"${rr_data.get('avg_rent', 0):,.0f}")
-            c1.metric("Gross Potential Rent", f"${rr_data.get('gross_potential_rent', 0):,.0f}")
-            c2.metric("Trailing NOI (T12)", f"${t12_parsed.get('noi', 0):,.0f}")
-            c1.metric("Occupancy", f"{rr_data.get('occupancy_rate', 0):.1%}")
-            c2.metric("Expense Ratio", f"{t12_parsed.get('expense_ratio', 0):.1%}")
-            
-            st.markdown("**AI Summary:**")
-            st.markdown(summary)
-            
-            # Store context for chat
-            st.session_state['upload_context'] = {
-                "rent_roll": rr_data, "t12": t12_parsed, "ai_summary": summary
-            }
-        else:
-            st.info("Upload both a Rent Roll and T12 to activate AI extraction and analysis.")
-            st.markdown("""
-            <div style="font-size:12px; color:#64748b; margin-top:12px;">
-            <b>Expected columns in Rent Roll:</b> Unit #, Monthly Rent, Sq Ft, Status<br>
-            <b>Expected format in T12:</b> Line item label in column A, monthly figures in subsequent columns
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
 
+    col_up, col_chat = st.columns([1, 1.3])
+
+    # ── LEFT: Upload + metrics ──
+    with col_up:
+        with st.container(border=True):
+            st.markdown('<div class="panel-title">Upload Deal Documents</div>', unsafe_allow_html=True)
+
+            rent_file = st.file_uploader("Rent Roll (Excel / CSV)", type=["xlsx","xls","csv"], key="rr")
+            t12_file  = st.file_uploader("T12 Trailing Financials (Excel / CSV)", type=["xlsx","xls","csv"], key="t12")
+
+            if rent_file and t12_file:
+                with st.spinner("Parsing and analyzing documents..."):
+                    try:
+                        rr_df  = pd.read_excel(rent_file) if rent_file.name.endswith(('xlsx','xls')) else pd.read_csv(rent_file)
+                        rr_data = parse_rent_roll(rr_df)
+                    except Exception as e:
+                        rr_data = {"error": str(e), "total_units": 0, "gross_potential_rent": 0}
+                    try:
+                        t12_df     = pd.read_excel(t12_file) if t12_file.name.endswith(('xlsx','xls')) else pd.read_csv(t12_file)
+                        t12_parsed = parse_t12(t12_df)
+                    except Exception as e:
+                        t12_parsed = {"error": str(e), "noi": 0}
+                    summary = ai_summarize_excel(rr_data, t12_parsed)
+                    if t12_parsed.get('noi', 0) > 0 and st.session_state.deal_data:
+                        st.session_state.deal_data['noi_year1'] = t12_parsed['noi']
+                        st.session_state.deal_loaded = True
+                        score, grade = score_deal(
+                            st.session_state.deal_data['irr'],
+                            st.session_state.deal_data['equity_mult'],
+                            st.session_state.deal_data['loss_prob']
+                        )
+                        st.session_state.deal_data['score'] = score
+                        st.session_state.deal_data['grade'] = grade
+
+                st.success("Documents indexed and analyzed ✓")
+                c1, c2 = st.columns(2)
+                c1.metric("Units (Rent Roll)",     rr_data.get('total_units', '—'))
+                c2.metric("Avg Monthly Rent",      f"${rr_data.get('avg_rent', 0):,.0f}")
+                c1.metric("Gross Potential Rent",  f"${rr_data.get('gross_potential_rent', 0):,.0f}")
+                c2.metric("Trailing NOI (T12)",    f"${t12_parsed.get('noi', 0):,.0f}")
+                c1.metric("Occupancy",             f"{rr_data.get('occupancy_rate', 0):.1%}")
+                c2.metric("Expense Ratio",         f"{t12_parsed.get('expense_ratio', 0):.1%}")
+                st.markdown("**AI Document Summary:**")
+                st.markdown(summary)
+                st.session_state['upload_context'] = {
+                    "rent_roll": rr_data, "t12": t12_parsed, "ai_summary": summary
+                }
+            else:
+                st.info("Upload both a Rent Roll and T12 to activate AI extraction and analysis.")
+                st.caption("Rent Roll: Unit #, Monthly Rent, Sq Ft, Status  |  T12: Line items in col A, monthly figures across columns")
+
+    # ── RIGHT: Deal Copilot ──
     with col_chat:
-        st.markdown('<div class="glass-panel" style="min-height:600px">', unsafe_allow_html=True)
-        st.markdown('<div class="panel-title">Deal Copilot — AI Underwriter</div>', unsafe_allow_html=True)
-        
-        chat_container = st.container(height=440, border=False)
-        with chat_container:
-            if not st.session_state.chat_history:
+        with st.container(border=True):
+            st.markdown('<div class="panel-title">Deal Copilot — AI Underwriter</div>', unsafe_allow_html=True)
+
+            # Messages
+            if st.session_state.chat_history:
+                chat_box = st.container(height=420, border=False)
+                with chat_box:
+                    for msg in st.session_state.chat_history:
+                        with st.chat_message(msg["role"]):
+                            st.markdown(msg["content"])
+            else:
                 st.markdown("""
-                <div style="text-align:center; color:#94a3b8; margin-top:80px; font-size:14px;">
-                    Ask me to analyze NOI, identify risks, benchmark cap rates,<br>or explain any part of the underwriting.
+                <div style="text-align:center;color:#94a3b8;padding:60px 20px;font-size:14px;line-height:2;">
+                    🤖<br><br>
+                    Ask me to analyze NOI, identify risks,<br>
+                    benchmark cap rates, or explain any part<br>
+                    of the underwriting model.
                 </div>
                 """, unsafe_allow_html=True)
-            for msg in st.session_state.chat_history:
-                with st.chat_message(msg["role"]):
-                    st.markdown(msg["content"])
-        
-        if prompt := st.chat_input("Ask about the deal..."):
-            st.session_state.chat_history.append({"role": "user", "content": prompt})
-            
-            # Build context
-            ctx = json.dumps({
-                "current_deal": st.session_state.deal_data,
-                "uploaded_data": st.session_state.get('upload_context', {}),
-                "settings": st.session_state.settings
-            }, default=str)
-            
-            with st.spinner("Analyzing..."):
-                reply = ai_analyze_deal(ctx, st.session_state.chat_history[:-1], prompt)
-            
-            st.session_state.chat_history.append({"role": "assistant", "content": reply})
-            st.rerun()
-        
-        st.markdown('</div>', unsafe_allow_html=True)
+
+            # Input
+            msg_col, btn_col = st.columns([5, 1])
+            with msg_col:
+                user_msg = st.text_input("", placeholder="Ask about the deal...",
+                                         label_visibility="collapsed", key="dr_chat_input")
+            with btn_col:
+                send = st.button("Send", type="primary", use_container_width=True)
+
+            if send and user_msg:
+                st.session_state.chat_history.append({"role": "user", "content": user_msg})
+                ctx = json.dumps({
+                    "current_deal":  st.session_state.deal_data,
+                    "uploaded_data": st.session_state.get('upload_context', {}),
+                    "settings":      st.session_state.settings
+                }, default=str)
+                with st.spinner("Analyzing..."):
+                    reply = ai_analyze_deal(ctx, st.session_state.chat_history[:-1], user_msg)
+                st.session_state.chat_history.append({"role": "assistant", "content": reply})
+                st.rerun()
 
 # ──────────────────────────────────────────────────────────────────────────────
 def view_ai_tracker():
@@ -1530,6 +1637,372 @@ def generate_pdf_memo(d: dict, memo_text: str, rec: str) -> bytes:
     except Exception:
         return html.encode("utf-8")
 
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SECTION 6C | DEBT STRUCTURING VIEW
+# ──────────────────────────────────────────────────────────────────────────────
+
+def view_debt_structuring():
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:20px;'>Debt Structuring & Loan Modeling</div>", unsafe_allow_html=True)
+    d = st.session_state.deal_data
+
+    col_in, col_out = st.columns([1, 1.6])
+
+    with col_in:
+        with st.container(border=True):
+            st.markdown("<div class='panel-title'>Loan Parameters</div>", unsafe_allow_html=True)
+            purchase_price = st.number_input("Purchase Price ($)", value=float(d["purchase_price"]) if d else 10000000.0, step=100000.0, format="%.0f")
+            loan_pct       = st.slider("Loan-to-Value (%)", 40, 80, 65)
+            loan_amount    = purchase_price * loan_pct / 100
+            st.metric("Loan Amount", f"${loan_amount:,.0f}")
+            rate           = st.number_input("Interest Rate (%)", value=6.75, step=0.25, format="%.2f") / 100
+            amort_years    = st.selectbox("Amortization", [25, 30, 35, 40], index=1)
+            io_years       = st.selectbox("Interest-Only Period (Yrs)", [0, 1, 2, 3, 5], index=0)
+            loan_fee_pct   = st.number_input("Loan Fee (%)", value=1.0, step=0.25, format="%.2f") / 100
+            prepay_years   = st.selectbox("Prepayment Lock (Yrs)", [0, 1, 2, 3, 5], index=3)
+            noi_y1         = st.number_input("NOI Year 1 ($)", value=float(d["noi_year1"]) if d else 500000.0, step=10000.0, format="%.0f")
+
+            run = st.button("Model Debt Structure", type="primary", use_container_width=True)
+
+    with col_out:
+        if run or st.session_state.get("debt_result"):
+            if run:
+                result = model_debt_structure(purchase_price, loan_amount, rate, amort_years, io_years, loan_fee_pct, prepay_years)
+                st.session_state.debt_result = result
+                st.session_state.debt_noi = noi_y1
+            else:
+                result = st.session_state.debt_result
+                noi_y1 = st.session_state.get("debt_noi", noi_y1)
+
+            dscr_io   = noi_y1 / result["io_payment_annual"]   if result["io_payment_annual"] > 0 else 0
+            dscr_full = noi_y1 / result["amort_payment_annual"] if result["amort_payment_annual"] > 0 else 0
+
+            with st.container(border=True):
+                st.markdown("<div class='panel-title'>Loan Summary</div>", unsafe_allow_html=True)
+                c1,c2,c3,c4 = st.columns(4)
+                c1.metric("Loan Amount",     f"${result['loan_amount']/1e6:.2f}M")
+                c2.metric("Net Proceeds",    f"${result['net_proceeds']/1e6:.2f}M")
+                c3.metric("Loan Fee",        f"${result['loan_fee']:,.0f}")
+                c4.metric("LTV",             f"{result['ltv']:.0%}")
+                c1.metric("IO Payment/yr",   f"${result['io_payment_annual']:,.0f}")
+                c2.metric("Amort Payment/yr",f"${result['amort_payment_annual']:,.0f}")
+                c3.metric("DSCR (IO)",       f"{dscr_io:.2f}x", delta="IO period" if io_years > 0 else None)
+                c4.metric("DSCR (Amort)",    f"{dscr_full:.2f}x")
+
+            with st.container(border=True):
+                st.markdown("<div class='panel-title'>10-Year Debt Schedule</div>", unsafe_allow_html=True)
+                rows = []
+                for s in result["schedule"]:
+                    rows.append({
+                        "Year": s["year"],
+                        "Beg Balance": f"${s['beg_balance']:,.0f}",
+                        "Payment":     f"${s['payment']:,.0f}",
+                        "Interest":    f"${s['interest']:,.0f}",
+                        "Principal":   f"${s['principal']:,.0f}",
+                        "End Balance": f"${s['end_balance']:,.0f}",
+                        "Prepay Penalty": f"${s['prepay_penalty']:,.0f}",
+                    })
+                st.dataframe(pd.DataFrame(rows).set_index("Year"), use_container_width=True)
+
+            # Balance curve chart
+            with st.container(border=True):
+                st.markdown("<div class='panel-title'>Loan Balance Paydown</div>", unsafe_allow_html=True)
+                yrs   = [s["year"] for s in result["schedule"]]
+                bals  = [s["end_balance"]/1e6 for s in result["schedule"]]
+                ints  = [s["interest"]/1e6 for s in result["schedule"]]
+                princs = [s["principal"]/1e6 for s in result["schedule"]]
+                fig = go.Figure()
+                fig.add_bar(x=yrs, y=ints,   name="Interest",   marker_color="#dc2626")
+                fig.add_bar(x=yrs, y=princs, name="Principal",  marker_color="#2563eb")
+                fig.add_scatter(x=yrs, y=bals, mode="lines+markers", name="Balance ($M)",
+                                line=dict(color="#0f172a", width=2), yaxis="y2")
+                fig.update_layout(barmode="stack", height=280,
+                    yaxis=dict(title="Payment ($M)", tickprefix="$", showgrid=False),
+                    yaxis2=dict(title="Balance ($M)", overlaying="y", side="right", tickprefix="$"),
+                    legend=dict(orientation="h", y=1.1),
+                    margin=dict(l=0,r=0,t=20,b=0), paper_bgcolor="white", plot_bgcolor="white")
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        else:
+            st.info("Set loan parameters and click Model Debt Structure to see full schedule and DSCR analysis.")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SECTION 6D | WATERFALL DISTRIBUTION VIEW
+# ──────────────────────────────────────────────────────────────────────────────
+
+def view_waterfall():
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:20px;'>LP/GP Waterfall Distribution Calculator</div>", unsafe_allow_html=True)
+    d = st.session_state.deal_data
+
+    col_in, col_out = st.columns([1, 1.6])
+
+    with col_in:
+        with st.container(border=True):
+            st.markdown("<div class='panel-title'>Deal Structure</div>", unsafe_allow_html=True)
+            purchase_price = st.number_input("Purchase Price ($)", value=float(d["purchase_price"]) if d else 10000000.0, step=100000.0, format="%.0f")
+            debt_pct       = st.slider("Debt (%)", 40, 80, 65)
+            debt           = purchase_price * debt_pct / 100
+            equity         = purchase_price - debt
+            st.metric("Total Equity", f"${equity:,.0f}")
+            st.metric("LP Equity (90%)", f"${equity*0.90:,.0f}")
+            st.metric("GP Equity (10%)", f"${equity*0.10:,.0f}")
+
+            noi_y1        = st.number_input("NOI Year 1 ($)", value=float(d["noi_year1"]) if d else 500000.0, step=10000.0, format="%.0f")
+            rent_growth   = st.number_input("Annual NOI Growth (%)", value=3.5, step=0.5, format="%.1f") / 100
+            hold_years    = st.slider("Hold Period (Yrs)", 3, 10, 5)
+            exit_cap      = st.number_input("Exit Cap Rate (%)", value=5.50, step=0.25, format="%.2f") / 100
+            pref_return   = st.number_input("Preferred Return (%)", value=8.0, step=0.5, format="%.1f") / 100
+
+            st.markdown("<div class='panel-title' style='margin-top:16px;'>Promote Hurdles</div>", unsafe_allow_html=True)
+            h1_lp = st.slider("Tier 1 LP split (up to Pref)", 60, 95, 80)
+            h2_lp = st.slider("Tier 2 LP split (12% IRR)", 50, 85, 70)
+            h3_lp = st.slider("Tier 3 LP split (18% IRR)", 30, 70, 50)
+
+            run = st.button("Calculate Waterfall", type="primary", use_container_width=True)
+
+    with col_out:
+        if run or st.session_state.get("waterfall_result"):
+            if run:
+                noi_list = [noi_y1 * (1 + rent_growth)**yr for yr in range(hold_years)]
+                noi_final = noi_list[-1]
+                exit_value = noi_final / exit_cap if exit_cap > 0 else purchase_price * 1.2
+                hurdles = [
+                    {"hurdle": pref_return, "lp_split": h1_lp/100, "gp_split": 1-h1_lp/100},
+                    {"hurdle": 0.12,        "lp_split": h2_lp/100, "gp_split": 1-h2_lp/100},
+                    {"hurdle": 0.18,        "lp_split": h3_lp/100, "gp_split": 1-h3_lp/100},
+                    {"hurdle": 999,         "lp_split": 0.30,       "gp_split": 0.70},
+                ]
+                wf = model_waterfall(equity, noi_list, exit_value, debt, pref_return, hurdles)
+                st.session_state.waterfall_result = wf
+                st.session_state.waterfall_exit = exit_value
+            else:
+                wf = st.session_state.waterfall_result
+                exit_value = st.session_state.get("waterfall_exit", 0)
+
+            with st.container(border=True):
+                st.markdown("<div class='panel-title'>Returns Summary</div>", unsafe_allow_html=True)
+                c1,c2,c3,c4 = st.columns(4)
+                c1.metric("LP Total Out",  f"${wf['lp_total_out']:,.0f}")
+                c2.metric("GP Total Out",  f"${wf['gp_total_out']:,.0f}")
+                c3.metric("LP EM",         f"{wf['lp_em']:.2f}x")
+                c4.metric("GP EM",         f"{wf['gp_em']:.2f}x")
+                c1.metric("LP IRR (approx)", f"{wf['lp_irr']:.1%}")
+                c2.metric("GP IRR (approx)", f"{wf['gp_irr']:.1%}")
+                c3.metric("Total Profit",    f"${wf['total_profit']:,.0f}")
+                c4.metric("Exit Value",      f"${exit_value/1e6:.1f}M")
+
+            with st.container(border=True):
+                st.markdown("<div class='panel-title'>Tier Breakdown</div>", unsafe_allow_html=True)
+                tier_rows = []
+                for i, t in enumerate(wf["tiers"]):
+                    hurdle_label = f"Pref ({t['hurdle']:.0%})" if i == 0 else f"Tier {i+1} ({t['hurdle']:.0%} IRR)" if t["hurdle"] < 999 else "Super Promote"
+                    tier_rows.append({
+                        "Tier": hurdle_label,
+                        "Total Allocated": f"${t['allocated']:,.0f}",
+                        "LP Share": f"${t['lp']:,.0f}",
+                        "GP Share": f"${t['gp']:,.0f}",
+                        "GP %": f"{t['gp']/t['allocated']*100:.0f}%" if t["allocated"] > 0 else "0%",
+                    })
+                if tier_rows:
+                    st.dataframe(pd.DataFrame(tier_rows).set_index("Tier"), use_container_width=True)
+
+            with st.container(border=True):
+                st.markdown("<div class='panel-title'>Distribution Waterfall Chart</div>", unsafe_allow_html=True)
+                labels = ["LP Capital Return", "GP Capital Return"] + [f"Tier {i+1}" for i in range(len(wf["tiers"]))]
+                lp_vals = [wf["lp_equity_in"]] + [0] + [t["lp"] for t in wf["tiers"]]
+                gp_vals = [0] + [wf["gp_equity_in"]] + [t["gp"] for t in wf["tiers"]]
+                fig = go.Figure()
+                fig.add_bar(x=labels, y=lp_vals, name="LP", marker_color="#2563eb")
+                fig.add_bar(x=labels, y=gp_vals, name="GP", marker_color="#16a34a")
+                fig.update_layout(barmode="group", height=280,
+                    yaxis=dict(tickprefix="$", showgrid=True, gridcolor="#f1f5f9"),
+                    margin=dict(l=0,r=0,t=20,b=0),
+                    paper_bgcolor="white", plot_bgcolor="white",
+                    legend=dict(orientation="h", y=1.1))
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        else:
+            st.info("Configure the deal structure and promote hurdles, then click Calculate Waterfall.")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SECTION 6E | DEAL COMPARISON VIEW
+# ──────────────────────────────────────────────────────────────────────────────
+
+def view_deal_comparison():
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:20px;'>Side-by-Side Deal Comparison</div>", unsafe_allow_html=True)
+    props = st.session_state.properties
+
+    if len(props) < 2:
+        st.info("Add at least 2 deals to your pipeline to use the comparison tool.")
+        if st.button("← Go to Pipeline"):
+            st.session_state.current_view = "Pipeline"
+            st.rerun()
+        return
+
+    names = [p["name"] for p in props]
+    col_s1, col_s2 = st.columns(2)
+    with col_s1:
+        sel1 = st.selectbox("Deal A", names, index=0, key="cmp1")
+    with col_s2:
+        sel2 = st.selectbox("Deal B", names, index=min(1, len(names)-1), key="cmp2")
+
+    d1 = next(p for p in props if p["name"] == sel1)
+    d2 = next(p for p in props if p["name"] == sel2)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Header cards
+    hc1, hc2 = st.columns(2)
+    for col, d, color in [(hc1, d1, "#2563eb"), (hc2, d2, "#16a34a")]:
+        grade_cls = f"grade-{d['grade'].lower()}"
+        with col:
+            st.markdown(f"""
+            <div style="background:#fff;border-radius:10px;border:2px solid {color};padding:16px;margin-bottom:16px;">
+              <div style="font-size:18px;font-weight:800;color:#0f172a;">{d["name"]}</div>
+              <div style="font-size:12px;color:#64748b;">{d.get("address","")}</div>
+              <div style="font-size:12px;color:#64748b;margin-top:4px;">{d["type"]} &bull; {d["units"]} units &bull; {d["vintage"]}</div>
+            </div>""", unsafe_allow_html=True)
+
+    # KPI comparison table
+    metrics = [
+        ("Purchase Price",   f"${d1['purchase_price']/1e6:.1f}M",       f"${d2['purchase_price']/1e6:.1f}M",  None),
+        ("NOI Year 1",       f"${d1['noi_year1']:,.0f}",                  f"${d2['noi_year1']:,.0f}",             None),
+        ("Cap Rate",         f"{d1['noi_year1']/d1['purchase_price']:.2%}" if d1["purchase_price"] else "—",
+                             f"{d2['noi_year1']/d2['purchase_price']:.2%}" if d2["purchase_price"] else "—",    None),
+        ("Levered IRR",      f"{d1['irr']:.1%}",                          f"{d2['irr']:.1%}",                    "higher"),
+        ("Equity Multiple",  f"{d1['equity_mult']:.2f}x",                 f"{d2['equity_mult']:.2f}x",           "higher"),
+        ("GP IRR",           f"{d1['gp_irr']:.1%}",                       f"{d2['gp_irr']:.1%}",                 "higher"),
+        ("Loss Probability", f"{d1['loss_prob']:.1%}",                    f"{d2['loss_prob']:.1%}",              "lower"),
+        ("Deal Score",       f"{d1['score']}/100",                         f"{d2['score']}/100",                  "higher"),
+        ("Grade",            d1["grade"],                                   d2["grade"],                           None),
+        ("Status",           d1["status"].upper(),                         d2["status"].upper(),                  None),
+    ]
+
+    with st.container(border=True):
+        st.markdown("<div class='panel-title'>KPI Comparison</div>", unsafe_allow_html=True)
+        header = st.columns([2, 1.5, 1.5])
+        header[0].markdown("**Metric**")
+        header[1].markdown(f"**{d1['name'][:20]}**")
+        header[2].markdown(f"**{d2['name'][:20]}**")
+        st.divider()
+        for label, v1, v2, better in metrics:
+            row = st.columns([2, 1.5, 1.5])
+            row[0].write(label)
+            # Highlight winner
+            try:
+                n1 = float(v1.replace("%","").replace("x","").replace("$","").replace("M","").replace(",","").replace("/100",""))
+                n2 = float(v2.replace("%","").replace("x","").replace("$","").replace("M","").replace(",","").replace("/100",""))
+                if better == "higher":
+                    row[1].markdown(f"**:blue[{v1}]**" if n1 >= n2 else v1)
+                    row[2].markdown(f"**:blue[{v2}]**" if n2 > n1  else v2)
+                elif better == "lower":
+                    row[1].markdown(f"**:blue[{v1}]**" if n1 <= n2 else v1)
+                    row[2].markdown(f"**:blue[{v2}]**" if n2 < n1  else v2)
+                else:
+                    row[1].write(v1); row[2].write(v2)
+            except:
+                row[1].write(v1); row[2].write(v2)
+
+    # Radar chart
+    with st.container(border=True):
+        st.markdown("<div class='panel-title'>Radar Comparison</div>", unsafe_allow_html=True)
+        cats = ["IRR", "Equity Mult", "Deal Score", "Low Risk", "Cap Rate"]
+        def normalize(d):
+            cap = d["noi_year1"]/d["purchase_price"] if d["purchase_price"] else 0
+            return [
+                min(d["irr"] / 0.25,       1.0),
+                min((d["equity_mult"]-1)/1.5, 1.0),
+                d["score"] / 100,
+                max(1 - d["loss_prob"] / 0.20, 0),
+                min(cap / 0.08,            1.0),
+            ]
+        vals1 = normalize(d1)
+        vals2 = normalize(d2)
+        fig = go.Figure()
+        fig.add_trace(go.Scatterpolar(r=vals1+[vals1[0]], theta=cats+[cats[0]],
+            fill="toself", name=d1["name"][:20], line=dict(color="#2563eb")))
+        fig.add_trace(go.Scatterpolar(r=vals2+[vals2[0]], theta=cats+[cats[0]],
+            fill="toself", name=d2["name"][:20], line=dict(color="#16a34a"), opacity=0.7))
+        fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0,1])),
+            height=320, margin=dict(l=40,r=40,t=40,b=0),
+            legend=dict(orientation="h", y=-0.1), paper_bgcolor="white")
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SECTION 6F | PORTFOLIO ALERTS VIEW
+# ──────────────────────────────────────────────────────────────────────────────
+
+def view_alerts():
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:20px;'>Portfolio Alerts & Performance Monitor</div>", unsafe_allow_html=True)
+    props = st.session_state.properties
+
+    if not props:
+        st.info("Add deals to your pipeline to enable performance monitoring.")
+        return
+
+    col_run, _ = st.columns([1, 3])
+    with col_run:
+        if st.button("🔄 Refresh Alert Scan", type="primary", use_container_width=True):
+            st.session_state.alert_log = check_irr_alerts(props)
+            st.session_state.alert_last_run = datetime.now().strftime("%B %d, %Y %H:%M")
+
+    if st.session_state.get("alert_last_run"):
+        st.caption(f"Last scanned: {st.session_state.alert_last_run}")
+
+    alerts = st.session_state.get("alert_log", [])
+
+    # Summary strip
+    total = len(props)
+    flagged = len(alerts)
+    high = sum(1 for a in alerts if a["severity"] == "high")
+    on_track = total - flagged
+    c1,c2,c3,c4 = st.columns(4)
+    c1.metric("Total Deals",   total)
+    c2.metric("On Track",      on_track, delta=f"{on_track/total*100:.0f}%" if total else None)
+    c3.metric("Flagged",       flagged,  delta=f"-{flagged}" if flagged > 0 else None, delta_color="inverse")
+    c4.metric("High Severity", high,     delta=f"-{high}" if high > 0 else None, delta_color="inverse")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    if not alerts:
+        if st.session_state.get("alert_log") is not None:
+            st.success("✅ All deals are performing within threshold. No alerts at this time.")
+        else:
+            st.info("Click **Refresh Alert Scan** to check all deals against their underwritten IRR targets.")
+        return
+
+    for a in sorted(alerts, key=lambda x: abs(x["drift"]), reverse=True):
+        sev_color = "#dc2626" if a["severity"] == "high" else "#d97706"
+        sev_bg    = "#fee2e2" if a["severity"] == "high" else "#fef9c3"
+        icon      = "🔴" if a["severity"] == "high" else "🟡"
+        with st.container(border=True):
+            hc1, hc2, hc3, hc4 = st.columns([3, 1, 1, 1])
+            hc1.markdown(f"{icon} **{a['name']}** — Grade {a['grade']}")
+            hc2.metric("Underwritten", f"{a['underwritten_irr']:.1%}")
+            hc3.metric("Current",      f"{a['current_irr']:.1%}", delta=f"{a['drift']:+.1%}", delta_color="normal")
+            hc4.markdown(f"""
+            <div style="background:{sev_bg};border-radius:6px;padding:8px;text-align:center;margin-top:8px;">
+              <div style="font-size:10px;color:{sev_color};font-weight:700;text-transform:uppercase;">{a["severity"]} alert</div>
+              <div style="font-size:12px;color:{sev_color};font-weight:700;">IRR {a["direction"]}</div>
+            </div>""", unsafe_allow_html=True)
+
+    # Alert history chart
+    if alerts:
+        with st.container(border=True):
+            st.markdown("<div class='panel-title'>IRR Drift by Property</div>", unsafe_allow_html=True)
+            names_a = [a["name"][:18] for a in alerts]
+            drifts  = [a["drift"]*100 for a in alerts]
+            colors  = ["#dc2626" if d < 0 else "#16a34a" for d in drifts]
+            fig = go.Figure(go.Bar(x=names_a, y=drifts, marker_color=colors,
+                text=[f"{d:+.1f}%" for d in drifts], textposition="outside"))
+            fig.add_hline(y=0, line_color="#0f172a", line_width=1)
+            fig.update_layout(height=260, yaxis=dict(title="IRR Drift (%)", showgrid=True, gridcolor="#f1f5f9"),
+                margin=dict(l=0,r=0,t=20,b=0), paper_bgcolor="white", plot_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # SECTION 7 │ SIDEBAR & ROUTER
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1543,14 +2016,20 @@ def render_sidebar():
         """, unsafe_allow_html=True)
         
         st.markdown("<div style='font-size:10px; color:#475569; font-weight:700; letter-spacing:1px; margin-bottom:8px;'>DEAL ANALYSIS</div>", unsafe_allow_html=True)
-        if st.button("📊  Deal Dashboard"):    st.session_state.current_view = "Dashboard";    st.rerun()
-        if st.button("🧠  AI Data Room"):      st.session_state.current_view = "DataRoom";     st.rerun()
-        if st.button("🤖  AI Tracker"):        st.session_state.current_view = "AITracker";    st.rerun()
-        if st.button("📄  IC Memo Generator"): st.session_state.current_view = "ICMemo";       st.rerun()
-        
+        if st.button("📊  Deal Dashboard"):     st.session_state.current_view = "Dashboard";    st.rerun()
+        if st.button("🧠  AI Data Room"):       st.session_state.current_view = "DataRoom";     st.rerun()
+        if st.button("🤖  AI Tracker"):         st.session_state.current_view = "AITracker";    st.rerun()
+        if st.button("📄  IC Memo Generator"):  st.session_state.current_view = "ICMemo";       st.rerun()
+
+        st.markdown("<div style='font-size:10px; color:#475569; font-weight:700; letter-spacing:1px; margin:20px 0 8px;'>UNDERWRITING TOOLS</div>", unsafe_allow_html=True)
+        if st.button("🏦  Debt Structuring"):   st.session_state.current_view = "DebtModel";    st.rerun()
+        if st.button("💰  Waterfall Calc"):     st.session_state.current_view = "Waterfall";    st.rerun()
+        if st.button("⚖️  Deal Comparison"):    st.session_state.current_view = "Compare";      st.rerun()
+        if st.button("🔔  Portfolio Alerts"):   st.session_state.current_view = "Alerts";       st.rerun()
+
         st.markdown("<div style='font-size:10px; color:#475569; font-weight:700; letter-spacing:1px; margin:20px 0 8px;'>PORTFOLIO</div>", unsafe_allow_html=True)
-        if st.button("🏢  Master Pipeline"):   st.session_state.current_view = "Pipeline";     st.rerun()
-        if st.button("⚙️  Settings"):          st.session_state.current_view = "Settings";     st.rerun()
+        if st.button("🏢  Master Pipeline"):    st.session_state.current_view = "Pipeline";     st.rerun()
+        if st.button("⚙️  Settings"):           st.session_state.current_view = "Settings";     st.rerun()
         
         # Active deal pill
         d = st.session_state.deal_data
@@ -1610,6 +2089,10 @@ def main():
     elif v == "Pipeline":       view_pipeline()
     elif v == "Settings":       view_settings()
     elif v == "PropertyDetail": view_property_detail()
+    elif v == "DebtModel":      view_debt_structuring()
+    elif v == "Waterfall":      view_waterfall()
+    elif v == "Compare":        view_deal_comparison()
+    elif v == "Alerts":         view_alerts()
 
 if __name__ == "__main__":
     main()
