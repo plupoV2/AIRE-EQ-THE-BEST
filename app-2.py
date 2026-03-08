@@ -342,23 +342,53 @@ def db_delete(prop_id: str, email: str):
         sb.table("aire_properties").delete().eq("firm_key", firm_key(email)).eq("prop_id", prop_id).execute()
     except: pass
 
+def db_save_settings(settings: dict, email: str) -> tuple:
+    """Save firm underwriting settings to Supabase."""
+    sb, err = get_supabase()
+    if not sb:
+        return False, err
+    try:
+        rec = {"firm_key": firm_key(email), "settings_json": json.dumps(settings)}
+        sb.table("aire_settings").upsert(rec, on_conflict="firm_key").execute()
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+def db_load_settings(email: str) -> dict:
+    """Load firm underwriting settings from Supabase."""
+    sb, _ = get_supabase()
+    if not sb:
+        return {}
+    try:
+        fk   = firm_key(email)
+        resp = sb.table("aire_settings").select("settings_json").eq("firm_key", fk).execute()
+        if resp.data:
+            return json.loads(resp.data[0]["settings_json"])
+        return {}
+    except:
+        return {}
+
 def load_firm_data():
-    """Load saved deals from Supabase. Runs whenever db_loaded is False."""
+    """Load saved deals + settings from Supabase. Runs whenever db_loaded is False."""
     email = st.session_state.get("user_email")
     if not email:
         return
     if st.session_state.get("db_loaded"):
         return
+    # Load properties
     props, err = db_load(email)
     st.session_state.db_error = err
     if props:
-        # Merge: keep any session-only deals not yet in DB, add DB deals
         existing_ids = {p['id'] for p in props}
         session_only = [p for p in st.session_state.get('properties', [])
                         if p['id'] not in existing_ids]
         st.session_state.properties  = props + session_only
         st.session_state.deal_data   = props[0]
         st.session_state.deal_loaded = True
+    # Load settings
+    saved_settings = db_load_settings(email)
+    if saved_settings:
+        st.session_state.settings.update(saved_settings)
     st.session_state.db_loaded = True
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -868,55 +898,7 @@ def view_pipeline():
     
     props = st.session_state.properties
 
-    # ── DB Diagnostics ──
-    sb, sb_err = get_supabase()
-    if sb_err:
-        st.error(f"❌ Supabase not connected: {sb_err}")
-    else:
-        st.success("🔒 Supabase connected", icon="✅")
-
-    with st.expander("🔧 Database Diagnostics — click to test save/load"):
-        st.write(f"**User email:** `{st.session_state.get('user_email')}`")
-        st.write(f"**Firm key:** `{firm_key(st.session_state.get('user_email',''))}`")
-        st.write(f"**db_loaded flag:** `{st.session_state.get('db_loaded')}`")
-        st.write(f"**Properties in session:** `{len(st.session_state.get('properties',[]))}`")
-
-        if st.button("▶ Run live DB write+read test"):
-            sb2, err2 = get_supabase()
-            if not sb2:
-                st.error(f"No client: {err2}")
-            else:
-                # Try raw insert
-                test_rec = {
-                    "firm_key": firm_key(st.session_state.get('user_email','')),
-                    "prop_id": "diag_test_001",
-                    "name": "DIAGNOSTIC TEST — DELETE ME",
-                    "address": "test", "units": 1, "vintage": 2020,
-                    "property_type": "Multifamily", "status": "active",
-                    "purchase_price": 1.0, "debt_amount": 0.0, "lp_equity": 0.0,
-                    "gp_equity": 0.0, "noi_year1": 0.0, "irr": 0.0,
-                    "equity_mult": 1.0, "gp_irr": 0.0, "loss_prob": 0.0,
-                    "grade": "B", "score": 50, "acquisition_date": "2024-01-01",
-                    "notes": "", "ai_prediction": 0.0, "ai_correct": True,
-                    "lat": 0.0, "lon": 0.0,
-                }
-                try:
-                    write_resp = sb2.table("aire_properties").upsert(
-                        test_rec, on_conflict="firm_key,prop_id"
-                    ).execute()
-                    st.success(f"✅ WRITE succeeded: {write_resp.data}")
-                except Exception as e:
-                    st.error(f"❌ WRITE failed: {e}")
-                    st.stop()
-
-                # Try raw read
-                try:
-                    fk = firm_key(st.session_state.get('user_email',''))
-                    read_resp = sb2.table("aire_properties").select("*").eq("firm_key", fk).execute()
-                    st.success(f"✅ READ succeeded: {len(read_resp.data)} rows found")
-                    st.json(read_resp.data)
-                except Exception as e:
-                    st.error(f"❌ READ failed: {e}")
+    # DB connected — saves happen silently
 
     # Empty state
     if not props:
@@ -978,7 +960,12 @@ def view_pipeline():
               <div style="padding-top:4px; font-size:12px;">{ai_icon} {ai_label}</div>
             </div>
             """, unsafe_allow_html=True)
-            col_del, _ = st.columns([1, 6])
+            col_view, col_del, _ = st.columns([1, 1, 5])
+            with col_view:
+                if st.button("🔍 View", key=f"view_{p['id']}", help="Full property detail"):
+                    st.session_state.detail_prop_id = p['id']
+                    st.session_state.current_view   = "PropertyDetail"
+                    st.rerun()
             with col_del:
                 if st.button("🗑 Remove", key=f"del_{p['id']}", help="Remove this deal"):
                     st.session_state.properties = [x for x in st.session_state.properties if x['id'] != p['id']]
@@ -1285,6 +1272,24 @@ Write 2 concise paragraphs. Professional tone. Include specific metrics."""
                 st.session_state['ic_memo_text'] = ai_memo
                 st.session_state['ic_memo_rec']  = rec
             st.success("IC Memo generated ✓")
+
+        # PDF download always visible after generation
+        if st.session_state.get('ic_memo_text') and st.session_state.get('deal_data'):
+            st.markdown("<br>", unsafe_allow_html=True)
+            pdf_bytes = generate_pdf_memo(
+                st.session_state.deal_data,
+                st.session_state.get('ic_memo_text',''),
+                st.session_state.get('ic_memo_rec','APPROVE')
+            )
+            ext  = "pdf" if pdf_bytes[:4] == b"%PDF" else "html"
+            mime = "application/pdf" if ext == "pdf" else "text/html"
+            st.download_button(
+                "📥 Download IC Memo",
+                data=pdf_bytes,
+                file_name=f"AIRE_ICMemo_{st.session_state.deal_data['name'].replace(' ','_')}.{ext}",
+                mime=mime,
+                use_container_width=True
+            )
         
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1347,29 +1352,183 @@ Write 2 concise paragraphs. Professional tone. Include specific metrics."""
 # ──────────────────────────────────────────────────────────────────────────────
 def view_settings():
     st.markdown('<div style="font-size:22px; font-weight:800; color:#0f172a; margin-bottom:20px;">Underwriting Settings & Assumptions</div>', unsafe_allow_html=True)
-    s = st.session_state.settings
-    
+    s = st.session_state.settings.copy()
+
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div class="glass-panel"><div class="panel-title">Return Thresholds</div>', unsafe_allow_html=True)
-        s['target_irr']  = st.slider("Target Levered IRR", 0.08, 0.30, s['target_irr'], 0.005, format="%.1f%%") / 1 if st.session_state.get('_settings_pct') else s['target_irr']
-        s['target_irr']  = st.number_input("Target IRR", min_value=0.05, max_value=0.40, value=s['target_irr'], step=0.005, format="%.3f")
-        s['max_ltv']     = st.number_input("Max LTV", 0.50, 0.85, s['max_ltv'], 0.01, format="%.2f")
-        s['min_dscr']    = st.number_input("Min DSCR", 1.0, 2.0, s['min_dscr'], 0.05, format="%.2f")
-        s['hold_period'] = st.slider("Default Hold Period (Yrs)", 3, 10, s['hold_period'])
+        s['target_irr']  = st.number_input("Target IRR", min_value=0.05, max_value=0.40, value=float(s['target_irr']), step=0.005, format="%.3f")
+        s['max_ltv']     = st.number_input("Max LTV", 0.50, 0.85, float(s['max_ltv']), 0.01, format="%.2f")
+        s['min_dscr']    = st.number_input("Min DSCR", 1.0, 2.0, float(s['min_dscr']), 0.05, format="%.2f")
+        s['hold_period'] = st.slider("Default Hold Period (Yrs)", 3, 10, int(s['hold_period']))
         st.markdown('</div>', unsafe_allow_html=True)
     with col2:
         st.markdown('<div class="glass-panel"><div class="panel-title">Operating Assumptions</div>', unsafe_allow_html=True)
-        s['vacancy_rate']    = st.number_input("Vacancy Rate", 0.02, 0.20, s['vacancy_rate'], 0.005, format="%.3f")
-        s['mgmt_fee']        = st.number_input("Management Fee", 0.02, 0.10, s['mgmt_fee'], 0.005, format="%.3f")
-        s['rent_growth']     = st.number_input("Rent Growth Rate", 0.00, 0.10, s['rent_growth'], 0.005, format="%.3f")
-        s['expense_growth']  = st.number_input("Expense Growth Rate", 0.00, 0.08, s['expense_growth'], 0.005, format="%.3f")
-        s['exit_cap_spread'] = st.number_input("Exit Cap Spread (bps)", 0.0, 0.02, s['exit_cap_spread'], 0.0025, format="%.4f")
+        s['vacancy_rate']    = st.number_input("Vacancy Rate", 0.02, 0.20, float(s['vacancy_rate']), 0.005, format="%.3f")
+        s['mgmt_fee']        = st.number_input("Management Fee", 0.02, 0.10, float(s['mgmt_fee']), 0.005, format="%.3f")
+        s['rent_growth']     = st.number_input("Rent Growth Rate", 0.00, 0.10, float(s['rent_growth']), 0.005, format="%.3f")
+        s['expense_growth']  = st.number_input("Expense Growth Rate", 0.00, 0.08, float(s['expense_growth']), 0.005, format="%.3f")
+        s['exit_cap_spread'] = st.number_input("Exit Cap Spread", 0.0, 0.02, float(s['exit_cap_spread']), 0.0025, format="%.4f")
         st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.session_state.settings = s
-    if st.button("Save Settings", type="primary"):
-        st.success("Settings saved and applied to all active models ✓")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("💾 Save Settings", type="primary", use_container_width=False):
+        st.session_state.settings = s
+        ok, err = db_save_settings(s, st.session_state.user_email)
+        if ok:
+            st.success("✅ Settings saved — applied to all models and persisted for your firm.")
+        else:
+            st.session_state.settings = s  # still apply locally
+            st.warning(f"Settings applied this session but DB save failed: {err}")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SECTION 6B | PROPERTY DETAIL + PDF EXPORT
+# ──────────────────────────────────────────────────────────────────────────────
+
+def view_property_detail():
+    prop_id = st.session_state.get("detail_prop_id")
+    props   = st.session_state.properties
+    d = next((p for p in props if p["id"] == prop_id), None)
+    if not d:
+        st.warning("Property not found.")
+        if st.button("Back to Pipeline"):
+            st.session_state.current_view = "Pipeline"
+            st.rerun()
+        return
+
+    if st.button("← Back to Pipeline"):
+        st.session_state.current_view = "Pipeline"
+        st.rerun()
+
+    grade_cls = f"grade-{d['grade'].lower()}"
+    pf   = build_proforma(d["noi_year1"], st.session_state.settings["rent_growth"],
+                          st.session_state.settings["expense_growth"],
+                          d["purchase_price"], d["debt_amount"],
+                          st.session_state.settings["hold_period"])
+    ltv  = d["debt_amount"] / d["purchase_price"] if d["purchase_price"] else 0
+    dscr = d["noi_year1"] / (d["debt_amount"] * 0.065) if d["debt_amount"] else 0
+
+    st.markdown(f"""
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+      <div>
+        <div style="font-size:26px;font-weight:900;color:#0f172a;">{d["name"]}</div>
+        <div style="font-size:13px;color:#64748b;">{d.get("address","")} &bull; {d["units"]} Units &bull; {d["type"]} &bull; {d["vintage"]}</div>
+      </div>
+      <span class="grade-badge {grade_cls}" style="font-size:28px;">{d["grade"]}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    c1,c2,c3,c4,c5,c6 = st.columns(6)
+    c1.metric("Levered IRR",     f"{d['irr']:.1%}")
+    c2.metric("Equity Multiple", f"{d['equity_mult']:.2f}x")
+    c3.metric("GP IRR",          f"{d['gp_irr']:.1%}")
+    c4.metric("Loss Prob.",      f"{d['loss_prob']:.1%}")
+    c5.metric("LTV",             f"{ltv:.0%}")
+    c6.metric("DSCR",            f"{dscr:.2f}x")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    col_mc, col_s = st.columns(2)
+    with col_mc:
+        st.markdown("<div class='glass-panel'><div class='panel-title'>Monte Carlo — 3,000 Scenarios</div>", unsafe_allow_html=True)
+        st.plotly_chart(chart_monte_carlo(run_monte_carlo(d["irr"])), use_container_width=True, config={"displayModeBar": False})
+        st.markdown("</div>", unsafe_allow_html=True)
+    with col_s:
+        st.markdown("<div class='glass-panel'><div class='panel-title'>IRR Sensitivity: Exit Cap x Hold</div>", unsafe_allow_html=True)
+        st.plotly_chart(chart_sensitivity(d["irr"], 0.0525), use_container_width=True, config={"displayModeBar": False})
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("<div class='glass-panel'><div class='panel-title'>5-Year Pro Forma</div>", unsafe_allow_html=True)
+    hdr = "<table class='proforma-table'><thead><tr><th>Line Item</th>" + "".join(f"<th>Year {y}</th>" for y in pf["years"]) + "</tr></thead><tbody>"
+    rows_html = ""
+    for label, vals in pf["rows"].items():
+        rc = "noi-row" if "Net Operating Income" in label else ("subtotal" if "Effective" in label else "")
+        rows_html += f"<tr class='{rc}'><td>{label}</td>"
+        for v in vals:
+            col = "#dc2626" if v < 0 else ("#1d4ed8" if "Net Operating Income" in label else "#0f172a")
+            rows_html += f"<td style='color:{col};'>{'(' if v<0 else ''}${abs(v):,.0f}{')'if v<0 else ''}</td>"
+        rows_html += "</tr>"
+    st.markdown(hdr + rows_html + "</tbody></table>", unsafe_allow_html=True)
+    col_noi, col_cap = st.columns([2, 1])
+    with col_noi:
+        st.plotly_chart(chart_noi_trend(pf["noi_list"], pf["years"]), use_container_width=True, config={"displayModeBar": False})
+    with col_cap:
+        st.plotly_chart(chart_capital_stack(d), use_container_width=True, config={"displayModeBar": False})
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    col_xl, col_pdf, col_dash = st.columns(3)
+    with col_xl:
+        buf = io.BytesIO()
+        pd.DataFrame(pf["rows"], index=[f"Year {y}" for y in pf["years"]]).T.to_excel(buf, sheet_name="Pro Forma")
+        st.download_button("⬇ Export Pro Forma (Excel)", data=buf.getvalue(),
+            file_name=f"AIRE_{d['name'].replace(' ','_')}_ProForma.xlsx",
+            mime="application/vnd.ms-excel", use_container_width=True)
+    with col_pdf:
+        memo_text = st.session_state.get("ic_memo_text", "")
+        rec_val   = st.session_state.get("ic_memo_rec", "APPROVE")
+        pdf_bytes = generate_pdf_memo(d, memo_text, rec_val)
+        ext  = "pdf" if pdf_bytes[:4] == b"%PDF" else "html"
+        mime = "application/pdf" if ext == "pdf" else "text/html"
+        st.download_button("📄 Download IC Memo (PDF)", data=pdf_bytes,
+            file_name=f"AIRE_ICMemo_{d['name'].replace(' ','_')}.{ext}",
+            mime=mime, use_container_width=True, type="primary")
+    with col_dash:
+        if st.button("📊 Load into Dashboard", use_container_width=True):
+            st.session_state.deal_data    = d
+            st.session_state.deal_loaded  = True
+            st.session_state.current_view = "Dashboard"
+            st.rerun()
+
+
+def generate_pdf_memo(d: dict, memo_text: str, rec: str) -> bytes:
+    rec_color = {"APPROVE": "#166534", "APPROVE WITH CONDITIONS": "#92400e", "DECLINE": "#991b1b"}.get(rec, "#334155")
+    rec_bg    = {"APPROVE": "#dcfce7", "APPROVE WITH CONDITIONS": "#fef9c3", "DECLINE": "#fee2e2"}.get(rec, "#f8fafc")
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+      body{{font-family:Arial,sans-serif;color:#0f172a;margin:40px;font-size:13px;}}
+      .hdr{{display:flex;justify-content:space-between;border-bottom:3px solid #0f172a;padding-bottom:16px;margin-bottom:24px;}}
+      .logo{{font-size:32px;font-weight:900;letter-spacing:-1px;}}
+      .meta{{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:16px;margin-bottom:20px;}}
+      .lbl{{font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;}}
+      .val{{font-size:14px;font-weight:700;}}
+      .kpis{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;}}
+      .kpi{{text-align:center;background:#eff6ff;border-radius:6px;padding:12px;}}
+      .kl{{font-size:10px;color:#1d4ed8;font-weight:700;}}
+      .kv{{font-size:20px;font-weight:800;color:#0f172a;}}
+      .rec{{background:{rec_bg};border-radius:6px;padding:16px;text-align:center;}}
+      .rl{{font-size:11px;color:{rec_color};font-weight:700;letter-spacing:1px;text-transform:uppercase;}}
+      .rv{{font-size:24px;font-weight:900;color:{rec_color};}}
+      .foot{{margin-top:40px;border-top:1px solid #e2e8f0;padding-top:12px;font-size:11px;color:#94a3b8;}}
+    </style></head><body>
+    <div class="hdr">
+      <div><div class="logo">AIRE</div><div style="font-size:10px;color:#64748b;letter-spacing:2px;text-transform:uppercase;">Institutional Underwriting</div></div>
+      <div style="text-align:right;"><div style="font-size:14px;font-weight:700;">Investment Committee Memorandum</div>
+        <div style="font-size:12px;color:#64748b;">{datetime.now().strftime("%B %d, %Y")}</div></div>
+    </div>
+    <div class="meta">
+      <div><div class="lbl">Asset</div><div class="val">{d["name"]}</div></div>
+      <div><div class="lbl">Type / Units</div><div class="val">{d["type"]} / {d["units"]} Units</div></div>
+      <div><div class="lbl">Purchase Price</div><div class="val">${d["purchase_price"]/1e6:.1f}M</div></div>
+      <div><div class="lbl">Deal Grade</div><div class="val">{d["grade"]} &mdash; {d["score"]}/100</div></div>
+      <div><div class="lbl">Address</div><div class="val">{d.get("address","&mdash;")}</div></div>
+      <div><div class="lbl">Acquisition Date</div><div class="val">{d.get("acquisition_date","&mdash;")}</div></div>
+    </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin-bottom:8px;">Executive Summary</div>
+    <div style="font-size:13px;line-height:1.8;color:#334155;margin-bottom:24px;">{memo_text or "No executive summary generated. Open IC Memo Generator to create one."}</div>
+    <div class="kpis">
+      <div class="kpi"><div class="kl">Levered IRR</div><div class="kv">{d["irr"]:.1%}</div></div>
+      <div class="kpi"><div class="kl">Equity Multiple</div><div class="kv">{d["equity_mult"]:.2f}x</div></div>
+      <div class="kpi"><div class="kl">GP IRR</div><div class="kv">{d["gp_irr"]:.1%}</div></div>
+      <div class="kpi"><div class="kl">Loss Probability</div><div class="kv">{d["loss_prob"]:.1%}</div></div>
+    </div>
+    <div class="rec"><div class="rl">Committee Recommendation</div><div class="rv">{rec}</div></div>
+    <div class="foot">Confidential &mdash; AIRE Institutional Underwriting &nbsp;|&nbsp; {datetime.now().strftime("%Y")}</div>
+    </body></html>"""
+    try:
+        import weasyprint
+        return weasyprint.HTML(string=html).write_pdf()
+    except Exception:
+        return html.encode("utf-8")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # SECTION 7 │ SIDEBAR & ROUTER
@@ -1444,12 +1603,13 @@ def main():
     render_sidebar()
     
     v = st.session_state.current_view
-    if   v == "Dashboard":  view_dashboard()
-    elif v == "DataRoom":   view_data_room()
-    elif v == "AITracker":  view_ai_tracker()
-    elif v == "ICMemo":     view_ic_memo()
-    elif v == "Pipeline":   view_pipeline()
-    elif v == "Settings":   view_settings()
+    if   v == "Dashboard":      view_dashboard()
+    elif v == "DataRoom":       view_data_room()
+    elif v == "AITracker":      view_ai_tracker()
+    elif v == "ICMemo":         view_ic_memo()
+    elif v == "Pipeline":       view_pipeline()
+    elif v == "Settings":       view_settings()
+    elif v == "PropertyDetail": view_property_detail()
 
 if __name__ == "__main__":
     main()
