@@ -1780,46 +1780,87 @@ def view_waterfall():
                 wf = st.session_state.waterfall_result
                 exit_value = st.session_state.get("waterfall_exit", 0)
 
-            with st.container(border=True):
-                st.markdown("<div class='panel-title'>Returns Summary</div>", unsafe_allow_html=True)
-                c1,c2,c3,c4 = st.columns(4)
-                c1.metric("LP Total Out",  f"${wf['lp_total_out']:,.0f}")
-                c2.metric("GP Total Out",  f"${wf['gp_total_out']:,.0f}")
-                c3.metric("LP EM",         f"{wf['lp_em']:.2f}x")
-                c4.metric("GP EM",         f"{wf['gp_em']:.2f}x")
-                c1.metric("LP IRR (approx)", f"{wf['lp_irr']:.1%}")
-                c2.metric("GP IRR (approx)", f"{wf['gp_irr']:.1%}")
-                c3.metric("Total Profit",    f"${wf['total_profit']:,.0f}")
-                c4.metric("Exit Value",      f"${exit_value/1e6:.1f}M")
+            # Returns summary — custom HTML (no truncation)
+            lp_out   = wf['lp_total_out']
+            gp_out   = wf['gp_total_out']
+            lp_em    = wf['lp_em']
+            gp_em    = wf['gp_em']
+            lp_irr   = wf['lp_irr']
+            gp_irr   = wf['gp_irr']
+            profit   = wf['total_profit']
+            ev_m     = exit_value / 1e6
 
-            with st.container(border=True):
-                st.markdown("<div class='panel-title'>Tier Breakdown</div>", unsafe_allow_html=True)
-                tier_rows = []
-                for i, t in enumerate(wf["tiers"]):
-                    hurdle_label = f"Pref ({t['hurdle']:.0%})" if i == 0 else f"Tier {i+1} ({t['hurdle']:.0%} IRR)" if t["hurdle"] < 999 else "Super Promote"
-                    tier_rows.append({
-                        "Tier": hurdle_label,
-                        "Total Allocated": f"${t['allocated']:,.0f}",
-                        "LP Share": f"${t['lp']:,.0f}",
-                        "GP Share": f"${t['gp']:,.0f}",
-                        "GP %": f"{t['gp']/t['allocated']*100:.0f}%" if t["allocated"] > 0 else "0%",
-                    })
-                if tier_rows:
-                    st.dataframe(pd.DataFrame(tier_rows).set_index("Tier"), use_container_width=True)
+            def kpi_card(label, value, bg, color):
+                return f'''<div style="background:{bg};border-radius:8px;padding:14px 16px;">
+                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:{color};margin-bottom:6px;">{label}</div>
+                  <div style="font-size:19px;font-weight:800;color:#0f172a;white-space:nowrap;">{value}</div>
+                </div>'''
 
+            st.markdown(f'''
+            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:14px;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:14px;">Returns Summary</div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+                {kpi_card("LP Total Out",       f"${lp_out:,.0f}",       "#eff6ff","#1d4ed8")}
+                {kpi_card("GP Total Out",       f"${gp_out:,.0f}",       "#f0fdf4","#16a34a")}
+                {kpi_card("LP Equity Multiple", f"{lp_em:.2f}x",          "#eff6ff","#1d4ed8")}
+                {kpi_card("GP Equity Multiple", f"{gp_em:.2f}x",          "#f0fdf4","#16a34a")}
+                {kpi_card("LP IRR (approx)",    f"{lp_irr:.1%}",          "#eff6ff","#1d4ed8")}
+                {kpi_card("GP IRR (approx)",    f"{gp_irr:.1%}",          "#f0fdf4","#16a34a")}
+                {kpi_card("Total Profit",       f"${profit:,.0f}",        "#f8fafc","#334155")}
+                {kpi_card("Exit Value",         f"${ev_m:.2f}M",          "#f8fafc","#334155")}
+              </div>
+            </div>
+            ''', unsafe_allow_html=True)
+
+            # Tier breakdown table
+            tier_rows_html = ""
+            for i, t in enumerate(wf["tiers"]):
+                label = f"Pref ({t['hurdle']:.0%})" if i == 0 else (
+                    f"Tier {i+1} ({t['hurdle']:.0%} IRR)" if t["hurdle"] < 999 else "Super Promote")
+                gp_pct = f"{t['gp']/t['allocated']*100:.0f}%" if t["allocated"] > 0 else "0%"
+                bg = "#f8fafc" if i % 2 == 0 else "#fff"
+                tier_rows_html += (
+                    f'<tr style="background:{bg};">'
+                    f'<td style="padding:10px 14px;font-weight:600;color:#0f172a;">{label}</td>'
+                    f'<td style="padding:10px 14px;color:#334155;">${t["allocated"]:,.0f}</td>'
+                    f'<td style="padding:10px 14px;color:#1d4ed8;font-weight:600;">${t["lp"]:,.0f}</td>'
+                    f'<td style="padding:10px 14px;color:#16a34a;font-weight:600;">${t["gp"]:,.0f}</td>'
+                    f'<td style="padding:10px 14px;"><span style="background:#f0fdf4;color:#16a34a;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:700;">{gp_pct}</span></td>'
+                    f'</tr>'
+                )
+
+            st.markdown(f'''
+            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:14px;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:14px;">Tier Breakdown</div>
+              <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead><tr style="border-bottom:2px solid #e2e8f0;">
+                  <th style="padding:10px 14px;text-align:left;color:#64748b;font-size:11px;text-transform:uppercase;">Tier</th>
+                  <th style="padding:10px 14px;text-align:left;color:#64748b;font-size:11px;text-transform:uppercase;">Total Allocated</th>
+                  <th style="padding:10px 14px;text-align:left;color:#1d4ed8;font-size:11px;text-transform:uppercase;">LP Share</th>
+                  <th style="padding:10px 14px;text-align:left;color:#16a34a;font-size:11px;text-transform:uppercase;">GP Share</th>
+                  <th style="padding:10px 14px;text-align:left;color:#64748b;font-size:11px;text-transform:uppercase;">GP Promote</th>
+                </tr></thead>
+                <tbody>{tier_rows_html}</tbody>
+              </table>
+            </div>
+            ''', unsafe_allow_html=True)
+
+            # Chart
             with st.container(border=True):
                 st.markdown("<div class='panel-title'>Distribution Waterfall Chart</div>", unsafe_allow_html=True)
-                labels = ["LP Capital Return", "GP Capital Return"] + [f"Tier {i+1}" for i in range(len(wf["tiers"]))]
-                lp_vals = [wf["lp_equity_in"]] + [0] + [t["lp"] for t in wf["tiers"]]
-                gp_vals = [0] + [wf["gp_equity_in"]] + [t["gp"] for t in wf["tiers"]]
+                labels  = ["LP Capital Return", "GP Capital Return"] + [f"Tier {i+1}" for i in range(len(wf["tiers"]))]
+                lp_vals = [wf["lp_equity_in"], 0] + [t["lp"] for t in wf["tiers"]]
+                gp_vals = [0, wf["gp_equity_in"]] + [t["gp"] for t in wf["tiers"]]
                 fig = go.Figure()
-                fig.add_bar(x=labels, y=lp_vals, name="LP", marker_color="#2563eb")
-                fig.add_bar(x=labels, y=gp_vals, name="GP", marker_color="#16a34a")
-                fig.update_layout(barmode="group", height=280,
+                fig.add_bar(x=labels, y=lp_vals, name="LP", marker_color="#2563eb",
+                            text=[f"${v/1e3:.0f}k" if v > 0 else "" for v in lp_vals], textposition="outside")
+                fig.add_bar(x=labels, y=gp_vals, name="GP", marker_color="#16a34a",
+                            text=[f"${v/1e3:.0f}k" if v > 0 else "" for v in gp_vals], textposition="outside")
+                fig.update_layout(barmode="group", height=300,
                     yaxis=dict(tickprefix="$", showgrid=True, gridcolor="#f1f5f9"),
-                    margin=dict(l=0,r=0,t=20,b=0),
-                    paper_bgcolor="white", plot_bgcolor="white",
-                    legend=dict(orientation="h", y=1.1))
+                    margin=dict(l=0,r=0,t=44,b=0), paper_bgcolor="white", plot_bgcolor="white",
+                    legend=dict(orientation="h", y=1.14),
+                    font=dict(family="Inter, sans-serif", size=12))
                 st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
         else:
             st.info("Configure the deal structure and promote hurdles, then click Calculate Waterfall.")
