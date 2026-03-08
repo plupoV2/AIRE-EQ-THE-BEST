@@ -1,3 +1,39 @@
+import subprocess, sys
+
+def _install(pkg):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", pkg, "-q"])
+
+try:
+    import plotly.graph_objects as go
+    import plotly.express as px
+except ImportError:
+    _install("plotly")
+    import plotly.graph_objects as go
+    import plotly.express as px
+
+try:
+    import pydeck as pdk
+except ImportError:
+    _install("pydeck")
+    import pydeck as pdk
+
+try:
+    from openai import OpenAI
+except ImportError:
+    _install("openai")
+    from openai import OpenAI
+
+try:
+    from supabase import create_client, Client
+except ImportError:
+    _install("supabase")
+    from supabase import create_client, Client
+
+try:
+    import openpyxl
+except ImportError:
+    _install("openpyxl")
+
 import os
 import time
 import json
@@ -7,13 +43,9 @@ import hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
-import pydeck as pdk
-import plotly.graph_objects as go
-import plotly.express as px
 import requests
 from datetime import datetime, timedelta
-from openai import OpenAI
-from supabase import create_client, Client
+
 
 # ==============================================================================
 # AIRE | INSTITUTIONAL UNDERWRITING ENGINE V4.0
@@ -124,30 +156,14 @@ def init_openai():
 supabase = init_supabase()
 ai_client = init_openai()
 
-DEMO_PROPERTIES = [
-    {"id":"prop_001","name":"The Grand at 100 Main St","address":"100 Main St, Dallas TX","units":240,"vintage":2018,"type":"Multifamily","status":"active",
-     "irr":0.182,"equity_mult":2.15,"gp_irr":0.265,"loss_prob":0.042,"grade":"A","score":87,
-     "purchase_price":45000000,"debt_amount":29250000,"lp_equity":14175000,"gp_equity":1575000,
-     "noi_year1":2837000,"acquisition_date":"2024-01-15","ai_prediction":0.185,"ai_correct":True,
-     "lat":32.7767,"lon":-96.7970,"notes":"Strong rent growth market. Class A asset."},
-    {"id":"prop_002","name":"Riverfront Plaza","address":"500 Commerce St, Nashville TN","units":180,"vintage":2015,"type":"Multifamily","status":"watch",
-     "irr":0.142,"equity_mult":1.85,"gp_irr":0.210,"loss_prob":0.078,"grade":"B","score":71,
-     "purchase_price":32000000,"debt_amount":20800000,"lp_equity":9600000,"gp_equity":1600000,
-     "noi_year1":1960000,"acquisition_date":"2024-03-22","ai_prediction":0.155,"ai_correct":False,
-     "lat":36.1627,"lon":-86.7816,"notes":"Vacancy higher than projected. AI recalibrating."},
-    {"id":"prop_003","name":"Harbor View Lofts","address":"1200 Harbor Blvd, Austin TX","units":96,"vintage":2021,"type":"Multifamily","status":"closed",
-     "irr":0.221,"equity_mult":2.40,"gp_irr":0.310,"loss_prob":0.021,"grade":"A","score":93,
-     "purchase_price":22000000,"debt_amount":14300000,"lp_equity":6930000,"gp_equity":770000,
-     "noi_year1":1320000,"acquisition_date":"2023-08-10","ai_prediction":0.218,"ai_correct":True,
-     "lat":30.2672,"lon":-97.7431,"notes":"Exceptional NOI growth. Exit at 5.0 cap projected."},
-]
+# No demo data — firms start with a clean slate
 
 def init_state():
     defaults = {
         "user_email": None, "firm_id": None, "current_view": "Dashboard",
-        "chat_history": [], "deal_data": DEMO_PROPERTIES[0],
-        "properties": DEMO_PROPERTIES, "deal_loaded": True,
-        "active_prop_id": "prop_001", "settings": {
+        "chat_history": [], "deal_data": None,
+        "properties": [], "deal_loaded": False,
+        "active_prop_id": None, "settings": {
             "target_irr": 0.15, "max_ltv": 0.70, "min_dscr": 1.25,
             "hold_period": 5, "vacancy_rate": 0.07, "mgmt_fee": 0.05,
             "rent_growth": 0.04, "expense_growth": 0.03, "exit_cap_spread": 0.0025,
@@ -513,6 +529,30 @@ def map_deck(lat, lon):
 # SECTION 6 │ VIEWS
 # ──────────────────────────────────────────────────────────────────────────────
 def view_dashboard():
+    if not st.session_state.deal_loaded or not st.session_state.deal_data:
+        st.markdown("""
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center;
+             min-height:60vh; text-align:center;">
+          <div style="font-size:48px; margin-bottom:16px;">🏢</div>
+          <div style="font-size:24px; font-weight:800; color:#0f172a; margin-bottom:8px;">No Active Deal Loaded</div>
+          <div style="font-size:15px; color:#64748b; max-width:420px; line-height:1.6; margin-bottom:28px;">
+            Your dashboard is clean and ready. Add a deal via the
+            <b>Master Pipeline</b> or upload documents in the <b>AI Data Room</b>
+            to begin underwriting.
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1,1,1])
+        with col1:
+            if st.button("📊 Go to Master Pipeline", use_container_width=True, type="primary"):
+                st.session_state.current_view = "Pipeline"
+                st.rerun()
+        with col2:
+            if st.button("🧠 Go to AI Data Room", use_container_width=True):
+                st.session_state.current_view = "DataRoom"
+                st.rerun()
+        return
+
     d = st.session_state.deal_data
     
     # Header
@@ -539,8 +579,8 @@ def view_dashboard():
     c4.metric("Equity Loss Prob.", f"{d['loss_prob']*100:.1f}%", "Low Risk", delta_color="inverse")
     c5.metric("Live Debt Rate", f"{rate:.2f}%", "10-Yr T + 200bps")
 
-    # Row 2 – Monte Carlo | Sensitivity | Map
-    col_mc, col_s, col_map = st.columns([1.6, 1.6, 1])
+    # Row 2 – Monte Carlo | Sensitivity
+    col_mc, col_s = st.columns([1, 1])
     with col_mc:
         st.markdown('<div class="glass-panel"><div class="panel-title">Monte Carlo Simulation — 3,000 Scenarios</div>', unsafe_allow_html=True)
         st.plotly_chart(chart_monte_carlo(run_monte_carlo(d['irr'])), use_container_width=True, config={'displayModeBar': False})
@@ -548,10 +588,6 @@ def view_dashboard():
     with col_s:
         st.markdown('<div class="glass-panel"><div class="panel-title">IRR Sensitivity: Exit Cap × Hold Period</div>', unsafe_allow_html=True)
         st.plotly_chart(chart_sensitivity(d['irr'], 0.0525), use_container_width=True, config={'displayModeBar': False})
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col_map:
-        st.markdown('<div class="glass-panel" style="min-height:330px"><div class="panel-title">Asset Location</div>', unsafe_allow_html=True)
-        st.pydeck_chart(map_deck(d['lat'], d['lon']), use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     # Row 3 – Pro Forma | Capital Stack
@@ -1043,3 +1079,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
