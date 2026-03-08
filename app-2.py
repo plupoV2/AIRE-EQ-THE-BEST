@@ -133,8 +133,81 @@ def inject_css():
       .status-closed { background:#dcfce7; color:#166534; }
       .status-watch  { background:#fef9c3; color:#92400e; }
 
-      /* ── Chat ── */
-      .stChatMessage { background:#fff !important; border:1px solid #e2e8f0 !important; border-radius:8px !important; }
+      /* ── Chat — ChatGPT style ── */
+
+      /* Page background for data room */
+      .stChatFloatingInputContainer {
+        background: transparent !important;
+        padding: 12px 0 !important;
+      }
+
+      /* The outer input wrapper */
+      [data-testid="stChatInputContainer"] {
+        background: #ffffff !important;
+        border: 1.5px solid #d1d5db !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08) !important;
+        padding: 6px 10px !important;
+        transition: border-color 0.2s, box-shadow 0.2s !important;
+      }
+      [data-testid="stChatInputContainer"]:focus-within {
+        border-color: #2563eb !important;
+        box-shadow: 0 4px 24px rgba(37,99,235,0.15) !important;
+      }
+
+      /* The textarea inside */
+      [data-testid="stChatInputContainer"] textarea {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        font-size: 15px !important;
+        font-family: 'Inter', sans-serif !important;
+        color: #0f172a !important;
+        padding: 8px 4px !important;
+        resize: none !important;
+      }
+      [data-testid="stChatInputContainer"] textarea::placeholder {
+        color: #9ca3af !important;
+        font-size: 15px !important;
+      }
+      [data-testid="stChatInputContainer"] textarea:focus {
+        outline: none !important;
+        box-shadow: none !important;
+      }
+
+      /* Send button */
+      [data-testid="stChatInputContainer"] button {
+        background: #1d4ed8 !important;
+        border-radius: 10px !important;
+        border: none !important;
+        width: 36px !important;
+        height: 36px !important;
+        padding: 6px !important;
+        transition: background 0.2s !important;
+      }
+      [data-testid="stChatInputContainer"] button:hover {
+        background: #1e40af !important;
+      }
+      [data-testid="stChatInputContainer"] button svg {
+        fill: #ffffff !important;
+        color: #ffffff !important;
+      }
+
+      /* Message bubbles */
+      [data-testid="stChatMessage"] {
+        background: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
+        border-radius: 12px !important;
+        padding: 14px 18px !important;
+        margin-bottom: 10px !important;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+      }
+      /* User messages slightly tinted */
+      [data-testid="stChatMessage"][data-testid*="user"],
+      .stChatMessage.user {
+        background: #eff6ff !important;
+        border-color: #bfdbfe !important;
+      }
     </style>
     """, unsafe_allow_html=True)
 
@@ -483,21 +556,42 @@ def chart_sensitivity(base_irr, base_cap):
     return fig
 
 def chart_capital_stack(d):
+    labels = ['Senior Debt', 'LP Equity', 'GP Equity']
+    values = [d['debt_amount'], d['lp_equity'], d['gp_equity']]
+    colors = ['#0f172a', '#2563eb', '#60a5fa']
+    total  = sum(values)
+
+    # Build percentage labels shown outside the ring
+    pct_labels = [f"{v/total*100:.1f}%" for v in values]
+    dollar_labels = [f"${v/1e6:.1f}M" for v in values]
+    text_labels = [f"<b>{l}</b><br>{p}<br>{dl}" for l, p, dl in zip(labels, pct_labels, dollar_labels)]
+
     fig = go.Figure(go.Pie(
-        labels=['Senior Debt','LP Equity','GP Equity'],
-        values=[d['debt_amount'], d['lp_equity'], d['gp_equity']],
-        hole=0.65, marker_colors=['#0f172a','#2563eb','#60a5fa'], textinfo='none'
+        labels=labels,
+        values=values,
+        hole=0.60,
+        marker_colors=colors,
+        text=text_labels,
+        textinfo='text',
+        textposition='outside',
+        outsidetextfont=dict(size=11, family='Inter', color='#334155'),
+        hovertemplate='%{label}<br>$%{value:,.0f}<br>%{percent}<extra></extra>',
+        showlegend=False,
+        pull=[0, 0, 0],
     ))
-    total = d['debt_amount'] + d['lp_equity'] + d['gp_equity']
+
     fig.update_layout(
-        height=220, margin=dict(l=0,r=0,t=10,b=0),
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        showlegend=True,
-        legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=0.82,
-                    font=dict(size=11, color='#475569')),
-        annotations=[dict(text=f"${total/1e6:.1f}M", x=0.38, y=0.5,
-                          font=dict(size=18, family="JetBrains Mono", color="#0f172a"),
-                          showarrow=False)]
+        height=280,
+        margin=dict(l=60, r=60, t=20, b=20),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        annotations=[dict(
+            text=f"<b>${total/1e6:.1f}M</b><br><span style='font-size:10px'>Total</span>",
+            x=0.5, y=0.5,
+            font=dict(size=16, family='JetBrains Mono', color='#0f172a'),
+            showarrow=False,
+            align='center'
+        )]
     )
     return fig
 
@@ -1154,3 +1248,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
