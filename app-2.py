@@ -868,15 +868,55 @@ def view_pipeline():
     
     props = st.session_state.properties
 
-    # ── DB Status Banner ──
-    db_err = st.session_state.get("db_error")
-    sb_test, sb_err = get_supabase()
+    # ── DB Diagnostics ──
+    sb, sb_err = get_supabase()
     if sb_err:
-        st.error(f"⚠️ **Database not connected:** {sb_err}  \n Deals will exist this session only. Fix your Supabase secrets to enable saving.")
-    elif db_err:
-        st.warning(f"⚠️ **DB load issue:** {db_err}")
+        st.error(f"❌ Supabase not connected: {sb_err}")
     else:
-        st.success("🔒 Connected to database — deals save automatically", icon="✅")
+        st.success("🔒 Supabase connected", icon="✅")
+
+    with st.expander("🔧 Database Diagnostics — click to test save/load"):
+        st.write(f"**User email:** `{st.session_state.get('user_email')}`")
+        st.write(f"**Firm key:** `{firm_key(st.session_state.get('user_email',''))}`")
+        st.write(f"**db_loaded flag:** `{st.session_state.get('db_loaded')}`")
+        st.write(f"**Properties in session:** `{len(st.session_state.get('properties',[]))}`")
+
+        if st.button("▶ Run live DB write+read test"):
+            sb2, err2 = get_supabase()
+            if not sb2:
+                st.error(f"No client: {err2}")
+            else:
+                # Try raw insert
+                test_rec = {
+                    "firm_key": firm_key(st.session_state.get('user_email','')),
+                    "prop_id": "diag_test_001",
+                    "name": "DIAGNOSTIC TEST — DELETE ME",
+                    "address": "test", "units": 1, "vintage": 2020,
+                    "property_type": "Multifamily", "status": "active",
+                    "purchase_price": 1.0, "debt_amount": 0.0, "lp_equity": 0.0,
+                    "gp_equity": 0.0, "noi_year1": 0.0, "irr": 0.0,
+                    "equity_mult": 1.0, "gp_irr": 0.0, "loss_prob": 0.0,
+                    "grade": "B", "score": 50, "acquisition_date": "2024-01-01",
+                    "notes": "", "ai_prediction": 0.0, "ai_correct": True,
+                    "lat": 0.0, "lon": 0.0,
+                }
+                try:
+                    write_resp = sb2.table("aire_properties").upsert(
+                        test_rec, on_conflict="firm_key,prop_id"
+                    ).execute()
+                    st.success(f"✅ WRITE succeeded: {write_resp.data}")
+                except Exception as e:
+                    st.error(f"❌ WRITE failed: {e}")
+                    st.stop()
+
+                # Try raw read
+                try:
+                    fk = firm_key(st.session_state.get('user_email',''))
+                    read_resp = sb2.table("aire_properties").select("*").eq("firm_key", fk).execute()
+                    st.success(f"✅ READ succeeded: {len(read_resp.data)} rows found")
+                    st.json(read_resp.data)
+                except Exception as e:
+                    st.error(f"❌ READ failed: {e}")
 
     # Empty state
     if not props:
