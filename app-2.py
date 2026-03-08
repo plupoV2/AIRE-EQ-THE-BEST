@@ -1035,13 +1035,24 @@ def render_sidebar():
         
         # Active deal pill
         d = st.session_state.deal_data
-        st.markdown(f"""
-        <div style="margin-top:24px; background:#111f33; border-radius:8px; padding:12px; border:1px solid #1a2840;">
-          <div style="font-size:10px; color:#64748b; font-weight:700; letter-spacing:0.5px; margin-bottom:4px;">ACTIVE DEAL</div>
-          <div style="font-size:12px; color:#f0f4f8; font-weight:600; line-height:1.4;">{d['name']}</div>
-          <div style="font-size:11px; color:#3b82f6; font-weight:700; font-family:'JetBrains Mono';">IRR {d['irr']:.1%} | Grade {d['grade']}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        if d:
+            deal_name = d['name']
+            deal_irr = f"{d['irr']:.1%}"
+            deal_grade = d['grade']
+            st.markdown(f"""
+            <div style="margin-top:24px; background:#111f33; border-radius:8px; padding:12px; border:1px solid #1a2840;">
+              <div style="font-size:10px; color:#64748b; font-weight:700; letter-spacing:0.5px; margin-bottom:4px;">ACTIVE DEAL</div>
+              <div style="font-size:12px; color:#f0f4f8; font-weight:600; line-height:1.4;">{deal_name}</div>
+              <div style="font-size:11px; color:#3b82f6; font-weight:700; font-family:'JetBrains Mono';">IRR {deal_irr} | Grade {deal_grade}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="margin-top:24px; background:#111f33; border-radius:8px; padding:12px; border:1px solid #1a2840;">
+              <div style="font-size:10px; color:#64748b; font-weight:700; letter-spacing:0.5px; margin-bottom:4px;">ACTIVE DEAL</div>
+              <div style="font-size:12px; color:#475569; font-style:italic;">No deal loaded</div>
+            </div>
+            """, unsafe_allow_html=True)
         
         # Bottom user info
         st.markdown("<br>"*4, unsafe_allow_html=True)
@@ -1079,4 +1090,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
