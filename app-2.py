@@ -604,21 +604,25 @@ def render_login():
             submitted = st.form_submit_button("Sign In", use_container_width=True, type="primary")
             
             if submitted:
-                if supabase:
+                sb, sb_err = get_supabase()
+                if sb:
                     try:
-                        resp = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                        resp = sb.auth.sign_in_with_password({"email": email, "password": password})
                         st.session_state.user_email = resp.user.email
                         st.session_state.firm_id = email.split("@")[1].split(".")[0].upper()
+                        st.session_state.db_loaded = False  # force reload of deals for this user
                         st.rerun()
-                    except:
+                    except Exception as e:
                         st.error("Access denied. Confirm active subscription at aire.io/pricing")
                 else:
+                    # No Supabase — allow login with any credentials for demo/dev
                     if email and password:
                         st.session_state.user_email = email
                         st.session_state.firm_id = email.split("@")[1].split(".")[0].upper() if "@" in email else "DEMO"
+                        st.session_state.db_loaded = False
                         st.rerun()
                     else:
-                        st.error("Please enter credentials.")
+                        st.error("Please enter email and password.")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # SECTION 5 │ CHARTS
@@ -1386,4 +1390,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
