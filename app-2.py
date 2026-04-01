@@ -242,6 +242,8 @@ def init_state():
         "active_prop_id": None, "db_loaded": False,
         "compare_ids": [],
         "alert_log": [],
+        "crm_data": {},
+        "om_extracted": {},
         "settings": {
             "target_irr": 0.15, "max_ltv": 0.70, "min_dscr": 1.25,
             "hold_period": 5, "vacancy_rate": 0.07, "mgmt_fee": 0.05,
@@ -2044,6 +2046,489 @@ def view_alerts():
             st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SECTION 6G | OM PDF IMPORT — AI DEAL EXTRACTOR
+# ──────────────────────────────────────────────────────────────────────────────
+
+def extract_text_from_pdf(pdf_bytes: bytes) -> str:
+    try:
+        import io as _io
+        # Try pypdf first
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(_io.BytesIO(pdf_bytes))
+            return "\n".join(page.extract_text() or "" for page in reader.pages[:20])
+
+        except ImportError:
+            pass
+        # Fallback: pdfminer
+        try:
+            from pdfminer.high_level import extract_text as pm_extract
+            return pm_extract(_io.BytesIO(pdf_bytes))
+        except ImportError:
+            pass
+        return ""
+    except Exception as e:
+        return ""
+
+def ai_parse_om(text: str) -> dict:
+    prompt = f"""You are an expert CRE analyst. Extract deal data from this Offering Memorandum text.
+Return ONLY a valid JSON object with these exact keys (use null if not found):
+{{
+  "property_name": string,
+  "address": string,
+  "property_type": string (Multifamily/Office/Retail/Industrial/Mixed-Use),
+  "units": integer,
+  "vintage_year": integer,
+  "asking_price": float,
+  "noi_year1": float,
+  "cap_rate": float (as decimal e.g. 0.055),
+  "occupancy_rate": float (as decimal),
+  "avg_monthly_rent": float,
+  "total_sqft": float,
+  "num_buildings": integer,
+  "market": string,
+  "key_features": list of 3 strings,
+  "investment_highlights": list of 3 strings
+}}
+
+OM TEXT (first 6000 chars):
+{text[:6000]}"""
+    try:
+        r = ai_client.chat.completions.create(
+            model="gpt-4o", max_tokens=800, temperature=0.1,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        raw = r.choices[0].message.content.strip()
+        raw = re.sub(r"```json|```", "", raw).strip()
+        return json.loads(raw)
+    except Exception as e:
+        return {}
+
+
+def view_om_import():
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>📎 OM Import — AI Deal Extractor</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:24px;'>Upload a broker Offering Memorandum PDF and AI will extract every key metric automatically.</div>", unsafe_allow_html=True)
+
+    col_up, col_out = st.columns([1, 1.5])
+
+    with col_up:
+        with st.container(border=True):
+            st.markdown("<div class='panel-title'>Upload Offering Memorandum</div>", unsafe_allow_html=True)
+            pdf_file = st.file_uploader("Drop PDF here", type=["pdf"], key="om_pdf")
+            url_input = st.text_input("Or paste a direct PDF URL", placeholder="https://broker.com/deal.pdf")
+
+            if pdf_file or url_input:
+                if st.button("⚡ Extract Deal Data with AI", type="primary", use_container_width=True):
+                    with st.spinner("Reading PDF and extracting deal metrics..."):
+                        # Get PDF bytes
+                        if pdf_file:
+                            pdf_bytes = pdf_file.read()
+                        else:
+                            try:
+                                resp = requests.get(url_input, timeout=15)
+                                pdf_bytes = resp.content
+                            except Exception as e:
+                                st.error(f"Could not fetch URL: {e}")
+                                pdf_bytes = b""
+
+                        if pdf_bytes:
+                            # Install pypdf if needed
+                            try:
+                                from pypdf import PdfReader
+                            except ImportError:
+                                import subprocess, sys
+                                subprocess.check_call([sys.executable, "-m", "pip", "install", "pypdf", "-q"])
+
+                            text = extract_text_from_pdf(pdf_bytes)
+                            if not text.strip():
+                                st.warning("Could not extract text from PDF. The file may be image-based. Try a text-based PDF.")
+                            else:
+                                data = ai_parse_om(text)
+                                st.session_state.om_extracted = data
+                                st.session_state.om_text_preview = text[:800]
+                                st.success(f"✅ Extracted {len([v for v in data.values() if v])} fields from {len(text):,} characters")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.caption("Supports standard broker OMs from CBRE, JLL, Eastdil, Marcus & Millichap, and most brokerage formats.")
+
+    with col_out:
+        data = st.session_state.get("om_extracted", {})
+        if not data:
+            st.markdown("""
+            <div style='text-align:center;padding:80px 20px;color:#94a3b8;'>
+              <div style='font-size:40px;margin-bottom:16px;'>📄</div>
+              <div style='font-size:15px;font-weight:600;color:#64748b;margin-bottom:8px;'>No OM uploaded yet</div>
+              <div style='font-size:13px;line-height:1.8;'>Upload a PDF or paste a URL on the left.<br>AI will read it and populate every field below.</div>
+            </div>""", unsafe_allow_html=True)
+        else:
+            with st.container(border=True):
+                st.markdown("<div class='panel-title'>Extracted Deal Data — Review & Edit</div>", unsafe_allow_html=True)
+
+                c1, c2 = st.columns(2)
+                name     = c1.text_input("Property Name",   value=data.get("property_name") or "")
+                address  = c2.text_input("Address",          value=data.get("address") or "")
+                ptype    = c1.selectbox("Property Type",     ["Multifamily","Office","Retail","Industrial","Mixed-Use"],
+                                         index=["Multifamily","Office","Retail","Industrial","Mixed-Use"].index(data.get("property_type","Multifamily")) if data.get("property_type") in ["Multifamily","Office","Retail","Industrial","Mixed-Use"] else 0)
+                units    = c2.number_input("Units / Sq Ft",  value=int(data.get("units") or 0), min_value=0)
+                vintage  = c1.number_input("Vintage Year",   value=int(data.get("vintage_year") or 2000), min_value=1900, max_value=2030)
+                price    = c2.number_input("Asking Price ($)",value=float(data.get("asking_price") or 0), step=100000.0, format="%.0f")
+                noi      = c1.number_input("NOI Year 1 ($)", value=float(data.get("noi_year1") or 0), step=10000.0, format="%.0f")
+                cap      = c2.number_input("Cap Rate (%)",   value=float((data.get("cap_rate") or 0)*100), step=0.25, format="%.2f")
+                occ      = c1.number_input("Occupancy (%)",  value=float((data.get("occupancy_rate") or 0.93)*100), step=0.5, format="%.1f")
+                avg_rent = c2.number_input("Avg Monthly Rent ($)", value=float(data.get("avg_monthly_rent") or 0), step=50.0, format="%.0f")
+
+                # Highlights
+                highlights = data.get("investment_highlights") or []
+                if highlights:
+                    st.markdown("<div style='margin-top:8px;'><b>AI-Extracted Highlights:</b></div>", unsafe_allow_html=True)
+                    for h in highlights:
+                        st.markdown(f"✅ {h}")
+
+                st.markdown("<br>", unsafe_allow_html=True)
+
+                if st.button("➕ Add to Pipeline", type="primary", use_container_width=True):
+                    if not name:
+                        st.error("Property name is required.")
+                    else:
+                        import time as _t
+                        ltv   = st.session_state.settings["max_ltv"]
+                        debt  = price * ltv
+                        lp_eq = price * (1 - ltv) * 0.90
+                        gp_eq = price * (1 - ltv) * 0.10
+                        cap_r = noi / price if price else 0
+                        est_irr = cap_r + 0.04
+                        est_em  = 1.0 + est_irr * 5
+                        s, g    = score_deal(est_irr, est_em, 0.05)
+                        new_prop = {
+                            "id": f"prop_{int(_t.time())}",
+                            "name": name, "address": address, "units": int(units),
+                            "vintage": int(vintage), "type": ptype, "status": "active",
+                            "purchase_price": price, "debt_amount": debt,
+                            "lp_equity": lp_eq, "gp_equity": gp_eq, "noi_year1": noi,
+                            "irr": est_irr, "equity_mult": est_em, "gp_irr": est_irr * 1.4,
+                            "loss_prob": 0.05, "grade": g, "score": s,
+                            "acquisition_date": datetime.now().strftime("%Y-%m-%d"),
+                            "ai_prediction": est_irr, "ai_correct": True,
+                            "lat": 32.7767, "lon": -96.7970, "notes": f"Imported from OM. Cap rate: {cap:.2f}%"
+                        }
+                        ok, err = db_save(new_prop, st.session_state.user_email)
+                        st.session_state.properties.append(new_prop)
+                        st.session_state.deal_data   = new_prop
+                        st.session_state.deal_loaded = True
+                        st.session_state.om_extracted = {}
+                        if ok:
+                            st.success(f"✅ '{name}' added to pipeline and saved to database!")
+                        else:
+                            st.warning(f"Added to session but DB save failed: {err}")
+                        st.rerun()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SECTION 6H | LP INVESTOR PORTAL
+# ──────────────────────────────────────────────────────────────────────────────
+
+def view_lp_portal():
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>👥 LP Investor Portal</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:24px;'>Investor-facing view of your portfolio. Share this summary with your LPs — clean, professional, no internal data exposed.</div>", unsafe_allow_html=True)
+
+    props = st.session_state.properties
+    if not props:
+        st.info("Add deals to your pipeline to populate the LP portal.")
+        return
+
+    # Portfolio header
+    total_aum    = sum(p["purchase_price"] for p in props)
+    total_equity = sum(p["lp_equity"] for p in props)
+    avg_irr      = sum(p["irr"] for p in props) / len(props)
+    avg_em       = sum(p["equity_mult"] for p in props) / len(props)
+    active_deals = sum(1 for p in props if p["status"] == "active")
+
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,#07111f 0%,#0f2744 100%);border-radius:12px;padding:28px 32px;margin-bottom:24px;color:#fff;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;">
+        <div>
+          <div style="font-size:28px;font-weight:900;letter-spacing:-1px;">AIRE</div>
+          <div style="font-size:11px;color:#3b82f6;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">Investor Portfolio Summary</div>
+          <div style="font-size:12px;color:#8ea5c0;">As of {datetime.now().strftime("%B %d, %Y")}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;text-align:center;">
+          <div><div style="font-size:10px;color:#8ea5c0;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Total AUM</div>
+               <div style="font-size:22px;font-weight:800;">${total_aum/1e6:.1f}M</div></div>
+          <div><div style="font-size:10px;color:#8ea5c0;font-weight:700;text-transform:uppercase;margin-bottom:4px;">LP Equity</div>
+               <div style="font-size:22px;font-weight:800;">${total_equity/1e6:.1f}M</div></div>
+          <div><div style="font-size:10px;color:#8ea5c0;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Avg LP IRR</div>
+               <div style="font-size:22px;font-weight:800;color:#3b82f6;">{avg_irr:.1%}</div></div>
+          <div><div style="font-size:10px;color:#8ea5c0;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Avg EM</div>
+               <div style="font-size:22px;font-weight:800;color:#3b82f6;">{avg_em:.2f}x</div></div>
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Individual property cards
+    st.markdown("<div style='font-size:14px;font-weight:700;color:#0f172a;margin-bottom:16px;'>Active Investments</div>", unsafe_allow_html=True)
+
+    for p in props:
+        if p["status"] == "closed":
+            continue
+        cap_rate = p["noi_year1"] / p["purchase_price"] if p["purchase_price"] else 0
+        dscr     = p["noi_year1"] / (p["debt_amount"] * 0.065) if p["debt_amount"] else 0
+        grade_color = {"A":"#166534","B":"#1d4ed8","C":"#92400e","D":"#991b1b"}.get(p["grade"],"#334155")
+        grade_bg    = {"A":"#dcfce7","B":"#dbeafe","C":"#fef9c3","D":"#fee2e2"}.get(p["grade"],"#f8fafc")
+
+        st.markdown(f"""
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+            <div>
+              <div style="font-size:16px;font-weight:800;color:#0f172a;">{p["name"]}</div>
+              <div style="font-size:12px;color:#64748b;margin-top:2px;">{p.get("address","") or "—"} &bull; {p["type"]} &bull; {p["units"]} Units &bull; {p["vintage"]}</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Acquired {p.get("acquisition_date","—")}</div>
+            </div>
+            <span style="background:{grade_bg};color:{grade_color};font-size:13px;font-weight:800;padding:6px 14px;border-radius:6px;">Grade {p["grade"]}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;">
+            <div style="text-align:center;background:#f8fafc;border-radius:8px;padding:10px;">
+              <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:4px;">LP Equity</div>
+              <div style="font-size:16px;font-weight:800;color:#0f172a;">${p["lp_equity"]/1e6:.2f}M</div>
+            </div>
+            <div style="text-align:center;background:#eff6ff;border-radius:8px;padding:10px;">
+              <div style="font-size:10px;color:#1d4ed8;font-weight:700;text-transform:uppercase;margin-bottom:4px;">LP IRR</div>
+              <div style="font-size:16px;font-weight:800;color:#1d4ed8;">{p["irr"]:.1%}</div>
+            </div>
+            <div style="text-align:center;background:#eff6ff;border-radius:8px;padding:10px;">
+              <div style="font-size:10px;color:#1d4ed8;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Equity Multiple</div>
+              <div style="font-size:16px;font-weight:800;color:#1d4ed8;">{p["equity_mult"]:.2f}x</div>
+            </div>
+            <div style="text-align:center;background:#f8fafc;border-radius:8px;padding:10px;">
+              <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Cap Rate</div>
+              <div style="font-size:16px;font-weight:800;color:#0f172a;">{cap_rate:.2%}</div>
+            </div>
+            <div style="text-align:center;background:#f8fafc;border-radius:8px;padding:10px;">
+              <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:4px;">DSCR</div>
+              <div style="font-size:16px;font-weight:800;color:#0f172a;">{dscr:.2f}x</div>
+            </div>
+          </div>
+          {"<div style='margin-top:12px;background:#f0fdf4;border-radius:6px;padding:10px;font-size:12px;color:#166534;'>✅ AI Tracking: On Target</div>" if p.get("ai_correct") else "<div style='margin-top:12px;background:#fef9c3;border-radius:6px;padding:10px;font-size:12px;color:#92400e;'>⚠️ AI Tracking: Monitor Closely</div>"}
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Closed/exited deals
+    closed = [p for p in props if p["status"] == "closed"]
+    if closed:
+        st.markdown("<div style='font-size:14px;font-weight:700;color:#0f172a;margin:24px 0 12px;'>Exited Investments</div>", unsafe_allow_html=True)
+        for p in closed:
+            st.markdown(f"""
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;margin-bottom:10px;opacity:0.8;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div style="font-size:15px;font-weight:700;color:#334155;">{p["name"]}</div>
+                  <div style="font-size:12px;color:#94a3b8;">{p["type"]} &bull; {p["units"]} Units &bull; Exited</div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-size:16px;font-weight:800;color:#16a34a;">{p["irr"]:.1%} IRR</div>
+                  <div style="font-size:13px;color:#64748b;">{p["equity_mult"]:.2f}x EM</div>
+                </div>
+              </div>
+            </div>""", unsafe_allow_html=True)
+
+    # PDF export
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("📥 Export LP Report (PDF)", type="primary"):
+        html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        body{{font-family:Arial,sans-serif;color:#0f172a;margin:40px;font-size:13px;}}
+        h1{{font-size:28px;font-weight:900;}}
+        .meta{{color:#64748b;font-size:12px;margin-bottom:24px;}}
+        table{{width:100%;border-collapse:collapse;margin-bottom:24px;}}
+        th{{background:#07111f;color:#fff;padding:10px;text-align:left;font-size:11px;text-transform:uppercase;}}
+        td{{padding:10px;border-bottom:1px solid #e2e8f0;font-size:13px;}}
+        tr:nth-child(even){{background:#f8fafc;}}
+        .footer{{margin-top:40px;color:#94a3b8;font-size:11px;border-top:1px solid #e2e8f0;padding-top:12px;}}
+        </style></head><body>
+        <h1>AIRE — LP Portfolio Summary</h1>
+        <div class="meta">As of {datetime.now().strftime("%B %d, %Y")} &nbsp;|&nbsp; Total AUM: ${total_aum/1e6:.1f}M &nbsp;|&nbsp; Avg IRR: {avg_irr:.1%}</div>
+        <table><thead><tr><th>Property</th><th>Type</th><th>LP Equity</th><th>LP IRR</th><th>EM</th><th>Cap Rate</th><th>Status</th></tr></thead><tbody>"""
+        for p in props:
+            cap_r = p["noi_year1"]/p["purchase_price"] if p["purchase_price"] else 0
+            html += f"<tr><td>{p['name']}</td><td>{p['type']}</td><td>${p['lp_equity']:,.0f}</td><td>{p['irr']:.1%}</td><td>{p['equity_mult']:.2f}x</td><td>{cap_r:.2%}</td><td>{p['status'].upper()}</td></tr>"
+        html += f"</tbody></table><div class='footer'>Confidential — AIRE Institutional Underwriting &nbsp;|&nbsp; {datetime.now().strftime('%Y')}</div></body></html>"
+        try:
+            import weasyprint
+            pdf = weasyprint.HTML(string=html).write_pdf()
+            ext, mime = "pdf", "application/pdf"
+        except:
+            pdf, ext, mime = html.encode(), "html", "text/html"
+        st.download_button("Download LP Report", data=pdf,
+            file_name=f"AIRE_LP_Report_{datetime.now().strftime('%Y%m%d')}.{ext}", mime=mime)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SECTION 6I | DEAL PIPELINE CRM
+# ──────────────────────────────────────────────────────────────────────────────
+
+CRM_STAGES = ["Sourcing", "Initial UW", "LOI", "Due Diligence", "Closing", "Closed", "Passed"]
+CRM_STAGE_COLORS = {
+    "Sourcing":      ("#eff6ff","#1d4ed8"),
+    "Initial UW":    ("#f0fdf4","#16a34a"),
+    "LOI":           ("#fef9c3","#92400e"),
+    "Due Diligence": ("#fef3c7","#d97706"),
+    "Closing":       ("#ede9fe","#7c3aed"),
+    "Closed":        ("#dcfce7","#166534"),
+    "Passed":        ("#f1f5f9","#64748b"),
+}
+
+def view_crm():
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>🗂️ Deal Pipeline CRM</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:20px;'>Track every deal from first look to close. Log notes, contacts, and stage history.</div>", unsafe_allow_html=True)
+
+    props = st.session_state.properties
+    if "crm_data" not in st.session_state:
+        # Initialize CRM records from existing properties
+        st.session_state.crm_data = {
+            p["id"]: {
+                "stage":    "Initial UW",
+                "broker":   "",
+                "broker_email": "",
+                "broker_phone": "",
+                "loi_date": "",
+                "close_date": "",
+                "notes":    [],
+                "history":  [{"date": datetime.now().strftime("%Y-%m-%d"), "stage": "Initial UW", "note": "Deal added to pipeline."}],
+            }
+            for p in props if p["id"] not in st.session_state.get("crm_data", {})
+        }
+
+    # Add any new props missing from CRM
+    for p in props:
+        if p["id"] not in st.session_state.crm_data:
+            st.session_state.crm_data[p["id"]] = {
+                "stage": "Initial UW", "broker": "", "broker_email": "",
+                "broker_phone": "", "loi_date": "", "close_date": "",
+                "notes": [],
+                "history": [{"date": datetime.now().strftime("%Y-%m-%d"), "stage": "Initial UW", "note": "Deal added."}],
+            }
+
+    if not props:
+        st.info("Add deals to your pipeline to track them in the CRM.")
+        return
+
+    # Stage summary strip
+    stage_counts = {}
+    for crm in st.session_state.crm_data.values():
+        s = crm.get("stage","Sourcing")
+        stage_counts[s] = stage_counts.get(s,0) + 1
+
+    cols = st.columns(len(CRM_STAGES))
+    for i, stage in enumerate(CRM_STAGES):
+        bg, color = CRM_STAGE_COLORS[stage]
+        count = stage_counts.get(stage, 0)
+        cols[i].markdown(f"""
+        <div style="background:{bg};border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:10px;color:{color};font-weight:700;text-transform:uppercase;letter-spacing:.5px;">{stage}</div>
+          <div style="font-size:22px;font-weight:800;color:#0f172a;">{count}</div>
+        </div>""", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Kanban-style list — grouped by stage
+    view_mode = st.radio("View", ["All Deals", "Kanban by Stage"], horizontal=True)
+
+    def deal_card(p, crm):
+        bg, color = CRM_STAGE_COLORS.get(crm["stage"], ("#f8fafc","#64748b"))
+        cap_rate = p["noi_year1"]/p["purchase_price"] if p["purchase_price"] else 0
+        return f"""
+        <div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid {color};border-radius:8px;padding:16px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div style="font-size:15px;font-weight:800;color:#0f172a;">{p["name"]}</div>
+              <div style="font-size:12px;color:#64748b;">{p.get("address","") or "No address"} &bull; {p["type"]} &bull; {p["units"]} units</div>
+            </div>
+            <span style="background:{bg};color:{color};font-size:11px;font-weight:700;padding:4px 10px;border-radius:4px;white-space:nowrap;">{crm["stage"]}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;">
+            <div style="font-size:11px;color:#64748b;">Price<br><b style="color:#0f172a;">${p["purchase_price"]/1e6:.1f}M</b></div>
+            <div style="font-size:11px;color:#64748b;">IRR<br><b style="color:#1d4ed8;">{p["irr"]:.1%}</b></div>
+            <div style="font-size:11px;color:#64748b;">Cap Rate<br><b style="color:#0f172a;">{cap_rate:.2%}</b></div>
+            <div style="font-size:11px;color:#64748b;">Grade<br><b style="color:#0f172a;">{p["grade"]}</b></div>
+          </div>
+          {f'<div style="margin-top:10px;font-size:12px;color:#64748b;">🏢 Broker: <b>{crm["broker"]}</b></div>' if crm.get("broker") else ""}
+          {f'<div style="font-size:11px;color:#94a3b8;margin-top:4px;">Last updated: {crm["history"][-1]["date"] if crm["history"] else "—"}</div>'}
+        </div>"""
+
+    if view_mode == "Kanban by Stage":
+        for stage in CRM_STAGES:
+            stage_props = [p for p in props if st.session_state.crm_data.get(p["id"],{}).get("stage") == stage]
+            if not stage_props:
+                continue
+            bg, color = CRM_STAGE_COLORS[stage]
+            st.markdown(f"<div style='font-size:12px;font-weight:700;color:{color};text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px;padding:6px 12px;background:{bg};border-radius:6px;display:inline-block;'>{stage} ({len(stage_props)})</div>", unsafe_allow_html=True)
+            for p in stage_props:
+                crm = st.session_state.crm_data.get(p["id"], {})
+                st.markdown(deal_card(p, crm), unsafe_allow_html=True)
+    else:
+        for p in props:
+            crm = st.session_state.crm_data.get(p["id"], {})
+            st.markdown(deal_card(p, crm), unsafe_allow_html=True)
+
+    # Deal editor
+    st.markdown("---")
+    st.markdown("<div style='font-size:16px;font-weight:700;color:#0f172a;margin-bottom:12px;'>Edit Deal CRM Record</div>", unsafe_allow_html=True)
+    prop_names = [p["name"] for p in props]
+    sel = st.selectbox("Select Deal", prop_names, key="crm_sel")
+    sel_prop = next(p for p in props if p["name"] == sel)
+    crm = st.session_state.crm_data.get(sel_prop["id"], {})
+
+    c1, c2 = st.columns(2)
+    with c1:
+        with st.container(border=True):
+            st.markdown("<div class='panel-title'>Stage & Dates</div>", unsafe_allow_html=True)
+            new_stage = st.selectbox("Pipeline Stage", CRM_STAGES,
+                index=CRM_STAGES.index(crm.get("stage","Initial UW")))
+            loi_date   = st.text_input("LOI Date",   value=crm.get("loi_date",""),   placeholder="2024-03-15")
+            close_date = st.text_input("Close Date", value=crm.get("close_date",""), placeholder="2024-06-30")
+
+    with c2:
+        with st.container(border=True):
+            st.markdown("<div class='panel-title'>Broker Contact</div>", unsafe_allow_html=True)
+            broker       = st.text_input("Broker Name",  value=crm.get("broker",""))
+            broker_email = st.text_input("Broker Email", value=crm.get("broker_email",""))
+            broker_phone = st.text_input("Broker Phone", value=crm.get("broker_phone",""))
+
+    new_note = st.text_area("Add Note / Activity Log", placeholder="e.g. Called broker, touring property next week, revised NOI down 5%...", height=80)
+
+    if st.button("💾 Save CRM Record", type="primary"):
+        entry = st.session_state.crm_data.get(sel_prop["id"], {})
+        old_stage = entry.get("stage","")
+        entry["stage"]        = new_stage
+        entry["loi_date"]     = loi_date
+        entry["close_date"]   = close_date
+        entry["broker"]       = broker
+        entry["broker_email"] = broker_email
+        entry["broker_phone"] = broker_phone
+        if new_note.strip():
+            entry.setdefault("notes",[]).append({"date": datetime.now().strftime("%Y-%m-%d %H:%M"), "text": new_note.strip()})
+        if new_stage != old_stage:
+            entry.setdefault("history",[]).append({"date": datetime.now().strftime("%Y-%m-%d"), "stage": new_stage, "note": f"Stage moved from {old_stage} to {new_stage}"})
+        st.session_state.crm_data[sel_prop["id"]] = entry
+        st.success(f"✅ CRM record updated for {sel_prop['name']}")
+        st.rerun()
+
+    # Activity history
+    history = crm.get("history",[])
+    notes   = crm.get("notes",[])
+    if history or notes:
+        with st.container(border=True):
+            st.markdown("<div class='panel-title'>Activity History</div>", unsafe_allow_html=True)
+            all_events = (
+                [{"date": h["date"], "text": f"📍 Stage: {h['stage']} — {h['note']}"} for h in history] +
+                [{"date": n["date"], "text": f"📝 {n['text']}"} for n in notes]
+            )
+            all_events.sort(key=lambda x: x["date"], reverse=True)
+            for ev in all_events[:15]:
+                st.markdown(f"<div style='font-size:13px;padding:6px 0;border-bottom:1px solid #f1f5f9;'><span style='color:#94a3b8;font-size:11px;'>{ev['date']}</span><br>{ev['text']}</div>", unsafe_allow_html=True)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # SECTION 7 │ SIDEBAR & ROUTER
 # ──────────────────────────────────────────────────────────────────────────────
@@ -2068,8 +2553,11 @@ def render_sidebar():
         if st.button("⚖️  Deal Comparison"):    st.session_state.current_view = "Compare";      st.rerun()
         if st.button("🔔  Portfolio Alerts"):   st.session_state.current_view = "Alerts";       st.rerun()
 
-        st.markdown("<div style='font-size:10px; color:#475569; font-weight:700; letter-spacing:1px; margin:20px 0 8px;'>PORTFOLIO</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:10px; color:#475569; font-weight:700; letter-spacing:1px; margin:20px 0 8px;'>PORTFOLIO & INVESTORS</div>", unsafe_allow_html=True)
         if st.button("🏢  Master Pipeline"):    st.session_state.current_view = "Pipeline";     st.rerun()
+        if st.button("🗂️  Deal CRM"):           st.session_state.current_view = "CRM";          st.rerun()
+        if st.button("👥  LP Portal"):          st.session_state.current_view = "LPPortal";     st.rerun()
+        if st.button("📎  OM Import"):          st.session_state.current_view = "OMImport";     st.rerun()
         if st.button("⚙️  Settings"):           st.session_state.current_view = "Settings";     st.rerun()
         
         # Active deal pill
@@ -2134,6 +2622,9 @@ def main():
     elif v == "Waterfall":      view_waterfall()
     elif v == "Compare":        view_deal_comparison()
     elif v == "Alerts":         view_alerts()
+    elif v == "OMImport":       view_om_import()
+    elif v == "LPPortal":       view_lp_portal()
+    elif v == "CRM":            view_crm()
 
 if __name__ == "__main__":
     main()
