@@ -5,3 +5,4 @@ openai
 supabase
 openpyxl
 xlrd
+pypdf
