@@ -1775,7 +1775,7 @@ Write 2 concise paragraphs. Professional tone. Include specific metrics."""
           </div>
           
           <div style="font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; margin-bottom:8px;">Executive Summary</div>
-          <div style="font-size:13px; line-height:1.7; color:#334155; margin-bottom:20px;">{memo_text if memo_text else '<em style="color:#94a3b8;">Generate memo to populate AI executive summary...</em>'}</div>
+          <div style="font-size:13px; line-height:1.7; color:#334155; margin-bottom:20px;">{memo_text.replace(chr(10), "<br>") if memo_text else '<em style="color:#94a3b8;">Generate memo to populate AI executive summary...</em>'}</div>
           
           <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px;">
             <div style="text-align:center; background:#eff6ff; border-radius:6px; padding:12px;">
@@ -2022,17 +2022,45 @@ def view_debt_structuring():
             dscr_io   = noi_y1 / result["io_payment_annual"]   if result["io_payment_annual"] > 0 else 0
             dscr_full = noi_y1 / result["amort_payment_annual"] if result["amort_payment_annual"] > 0 else 0
 
-            with st.container(border=True):
-                st.markdown("<div class='panel-title'>Loan Summary</div>", unsafe_allow_html=True)
-                c1,c2,c3,c4 = st.columns(4)
-                c1.metric("Loan Amount",     f"${result['loan_amount']/1e6:.2f}M")
-                c2.metric("Net Proceeds",    f"${result['net_proceeds']/1e6:.2f}M")
-                c3.metric("Loan Fee",        f"${result['loan_fee']:,.0f}")
-                c4.metric("LTV",             f"{result['ltv']:.0%}")
-                c1.metric("IO Payment/yr",   f"${result['io_payment_annual']:,.0f}")
-                c2.metric("Amort Payment/yr",f"${result['amort_payment_annual']:,.0f}")
-                c3.metric("DSCR (IO)",       f"{dscr_io:.2f}x", delta="IO period" if io_years > 0 else None)
-                c4.metric("DSCR (Amort)",    f"{dscr_full:.2f}x")
+            st.markdown(f'''
+            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:14px;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:14px;">Loan Summary</div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+                <div style="background:#f8fafc;border-radius:8px;padding:14px;">
+                  <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Loan Amount</div>
+                  <div style="font-size:20px;font-weight:800;color:#0f172a;">${result["loan_amount"]/1e6:.2f}M</div>
+                </div>
+                <div style="background:#f8fafc;border-radius:8px;padding:14px;">
+                  <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Net Proceeds</div>
+                  <div style="font-size:20px;font-weight:800;color:#0f172a;">${result["net_proceeds"]/1e6:.2f}M</div>
+                </div>
+                <div style="background:#f8fafc;border-radius:8px;padding:14px;">
+                  <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Loan Fee</div>
+                  <div style="font-size:20px;font-weight:800;color:#0f172a;">${result["loan_fee"]:,.0f}</div>
+                </div>
+                <div style="background:#f8fafc;border-radius:8px;padding:14px;">
+                  <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:4px;">LTV</div>
+                  <div style="font-size:20px;font-weight:800;color:#0f172a;">{result["ltv"]:.0%}</div>
+                </div>
+                <div style="background:#eff6ff;border-radius:8px;padding:14px;">
+                  <div style="font-size:10px;color:#1d4ed8;font-weight:700;text-transform:uppercase;margin-bottom:4px;">IO Payment / yr</div>
+                  <div style="font-size:20px;font-weight:800;color:#0f172a;">${result["io_payment_annual"]:,.0f}</div>
+                </div>
+                <div style="background:#eff6ff;border-radius:8px;padding:14px;">
+                  <div style="font-size:10px;color:#1d4ed8;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Amort Payment / yr</div>
+                  <div style="font-size:20px;font-weight:800;color:#0f172a;">${result["amort_payment_annual"]:,.0f}</div>
+                </div>
+                <div style="background:{"#f0fdf4" if dscr_io >= 1.25 else "#fee2e2"};border-radius:8px;padding:14px;">
+                  <div style="font-size:10px;color:{"#16a34a" if dscr_io >= 1.25 else "#dc2626"};font-weight:700;text-transform:uppercase;margin-bottom:4px;">DSCR (IO)</div>
+                  <div style="font-size:20px;font-weight:800;color:#0f172a;">{dscr_io:.2f}x</div>
+                </div>
+                <div style="background:{"#f0fdf4" if dscr_full >= 1.25 else "#fee2e2"};border-radius:8px;padding:14px;">
+                  <div style="font-size:10px;color:{"#16a34a" if dscr_full >= 1.25 else "#dc2626"};font-weight:700;text-transform:uppercase;margin-bottom:4px;">DSCR (Amort)</div>
+                  <div style="font-size:20px;font-weight:800;color:#0f172a;">{dscr_full:.2f}x</div>
+                </div>
+              </div>
+            </div>
+            ''', unsafe_allow_html=True)
 
             with st.container(border=True):
                 st.markdown("<div class='panel-title'>10-Year Debt Schedule</div>", unsafe_allow_html=True)
