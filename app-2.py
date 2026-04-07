@@ -88,6 +88,16 @@ def inject_css():
         background: #111f33 !important; color: #f0f4f8 !important;
       }
 
+      /* ── Keep sidebar always open — hide the collapse/expand toggle ── */
+      [data-testid="collapsedControl"] { display: none !important; }
+      button[data-testid="baseButton-header"] { display: none !important; }
+      section[data-testid="stSidebar"] {
+        min-width: 240px !important;
+        width: 240px !important;
+        transform: translateX(0) !important;
+        visibility: visible !important;
+      }
+
       /* ── Metric Cards ── */
       div[data-testid="metric-container"] {
         background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
