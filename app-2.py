@@ -3661,23 +3661,29 @@ def view_team():
 
 def view_whitelabel():
     st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>🎨 White-Label Customization</div>", unsafe_allow_html=True)
-    st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:20px;'>Replace AIRE branding with your firm's identity across all reports, memos, and the LP portal.</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:24px;'>Replace AIRE branding with your firm identity across all reports, memos, and the LP portal.</div>", unsafe_allow_html=True)
 
     wl = st.session_state.get("whitelabel", {})
 
-    col_cfg, col_prev = st.columns([1, 1.2])
+    col_cfg, col_prev = st.columns([1, 1.3])
 
     with col_cfg:
         with st.container(border=True):
-            st.markdown("<div class='panel-title'>Brand Settings</div>", unsafe_allow_html=True)
-            firm_name    = st.text_input("Firm Name",      value=wl.get("firm_name","AIRE"))
-            firm_tagline = st.text_input("Tagline",        value=wl.get("tagline","Institutional Underwriting Platform"))
-            primary_color= st.color_picker("Primary Color",value=wl.get("primary","#07111f"))
-            accent_color = st.color_picker("Accent Color", value=wl.get("accent","#2563eb"))
-            logo_url     = st.text_input("Logo URL (optional)", value=wl.get("logo_url",""), placeholder="https://yourfirm.com/logo.png")
-            website      = st.text_input("Firm Website",   value=wl.get("website",""), placeholder="https://yourfirm.com")
-            footer_text  = st.text_input("Memo Footer",    value=wl.get("footer","Confidential — Institutional Underwriting"))
+            st.markdown("<div class='panel-title'>Brand Identity</div>", unsafe_allow_html=True)
+            firm_name     = st.text_input("Firm Name",    value=wl.get("firm_name","AIRE"))
+            firm_tagline  = st.text_input("Tagline",      value=wl.get("tagline","Institutional Underwriting Platform"))
 
+            st.markdown("<div style='font-size:12px;font-weight:700;color:#64748b;margin:12px 0 4px;'>COLORS</div>", unsafe_allow_html=True)
+            cc1, cc2 = st.columns(2)
+            primary_color = cc1.color_picker("Header Background", value=wl.get("primary","#07111f"))
+            accent_color  = cc2.color_picker("Accent / Buttons",  value=wl.get("accent","#2563eb"))
+
+            st.markdown("<div style='font-size:12px;font-weight:700;color:#64748b;margin:12px 0 4px;'>CONTACT & LINKS</div>", unsafe_allow_html=True)
+            logo_url  = st.text_input("Logo URL (optional)", value=wl.get("logo_url",""),  placeholder="https://yourfirm.com/logo.png")
+            website   = st.text_input("Firm Website",        value=wl.get("website",""),   placeholder="https://yourfirm.com")
+            footer_text = st.text_input("Report Footer Text", value=wl.get("footer","Confidential — Institutional Underwriting"))
+
+            st.markdown("<br>", unsafe_allow_html=True)
             if st.button("💾 Save Brand Settings", type="primary", use_container_width=True):
                 st.session_state.whitelabel = {
                     "firm_name": firm_name, "tagline": firm_tagline,
@@ -3687,48 +3693,118 @@ def view_whitelabel():
                 ok, err = db_save_settings({"whitelabel": st.session_state.whitelabel},
                                             st.session_state.user_email)
                 if ok:
-                    st.success("✅ Brand settings saved — applied to all memos and LP reports.")
+                    st.success("✅ Brand saved — applied to all memos and LP reports.")
                 else:
                     st.success("✅ Applied this session.")
                 st.rerun()
 
-    with col_prev:
-        with st.container(border=True):
-            st.markdown("<div class='panel-title'>Live Preview</div>", unsafe_allow_html=True)
-            fn = wl.get("firm_name","AIRE")
-            tg = wl.get("tagline","Institutional Underwriting Platform")
-            pc = wl.get("primary","#07111f")
-            ac = wl.get("accent","#2563eb")
-            ft = wl.get("footer","Confidential — Institutional Underwriting")
-            lu = wl.get("logo_url","")
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.caption("Brand settings are saved per firm and persist across all logins. Every IC memo, LP report, and email delivery will use your branding.")
 
-            logo_html = f"<img src='{lu}' style='height:40px;margin-bottom:8px;' /><br>" if lu else ""
-            st.markdown(f"""
-            <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
-              <div style="background:{pc};padding:20px 24px;">
-                {logo_html}
-                <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-1px;">{fn}</div>
-                <div style="font-size:10px;color:{ac};font-weight:700;letter-spacing:2px;text-transform:uppercase;">{tg}</div>
-              </div>
-              <div style="padding:20px 24px;">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-                  <div style="background:#eff6ff;border-radius:6px;padding:12px;text-align:center;">
-                    <div style="font-size:10px;color:{ac};font-weight:700;">LEVERED IRR</div>
-                    <div style="font-size:20px;font-weight:800;">18.4%</div>
-                  </div>
-                  <div style="background:#eff6ff;border-radius:6px;padding:12px;text-align:center;">
-                    <div style="font-size:10px;color:{ac};font-weight:700;">EQUITY MULT</div>
-                    <div style="font-size:20px;font-weight:800;">2.21x</div>
-                  </div>
-                </div>
-                <div style="background:#dcfce7;border-radius:6px;padding:12px;text-align:center;">
-                  <div style="font-size:11px;color:#166534;font-weight:700;text-transform:uppercase;">Recommendation</div>
-                  <div style="font-size:20px;font-weight:900;color:#166534;">APPROVE</div>
-                </div>
-              </div>
-              <div style="background:#f8fafc;padding:10px 24px;font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0;">{ft}</div>
+    with col_prev:
+        # Pull current values fresh every render
+        fn = firm_name  if 'firm_name'    in dir() else wl.get("firm_name","AIRE")
+        tg = firm_tagline if 'firm_tagline' in dir() else wl.get("tagline","Institutional Underwriting Platform")
+        pc = primary_color if 'primary_color' in dir() else wl.get("primary","#07111f")
+        ac = accent_color  if 'accent_color'  in dir() else wl.get("accent","#2563eb")
+        ft = footer_text   if 'footer_text'   in dir() else wl.get("footer","Confidential — Institutional Underwriting")
+        lu = logo_url      if 'logo_url'      in dir() else wl.get("logo_url","")
+
+        # ── Memo preview card ──
+        logo_tag = ""
+        if lu:
+            logo_tag = "<img src='" + lu + "' style='height:36px;margin-bottom:10px;display:block;' />"
+
+        header_content = logo_tag + (
+            "<div style='font-size:26px;font-weight:900;color:#fff;letter-spacing:-1px;line-height:1;'>" + fn + "</div>"
+            "<div style='font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-top:4px;color:" + ac + ";'>" + tg + "</div>"
+        )
+
+        preview_html = """
+        <div style='border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);'>
+
+          <!-- Header -->
+          <div style='background:""" + pc + """;padding:22px 26px;'>""" + header_content + """
+            <div style='font-size:11px;color:rgba(255,255,255,0.5);margin-top:8px;border-top:1px solid rgba(255,255,255,0.1);padding-top:8px;'>
+              Investment Committee Memorandum &nbsp;|&nbsp; """ + datetime.now().strftime("%B %d, %Y") + """
             </div>
-            """, unsafe_allow_html=True)
+          </div>
+
+          <!-- Deal meta grid -->
+          <div style='padding:18px 26px;background:#fff;'>
+            <div style='display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#f8fafc;border-radius:8px;padding:14px;margin-bottom:16px;'>
+              <div>
+                <div style='font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;'>Asset</div>
+                <div style='font-size:13px;font-weight:700;color:#0f172a;'>123 Main Apartments</div>
+              </div>
+              <div>
+                <div style='font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;'>Type / Units</div>
+                <div style='font-size:13px;font-weight:700;color:#0f172a;'>Multifamily / 120 Units</div>
+              </div>
+              <div>
+                <div style='font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;'>Purchase Price</div>
+                <div style='font-size:13px;font-weight:700;color:#0f172a;'>$18.5M</div>
+              </div>
+              <div>
+                <div style='font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;'>Deal Grade</div>
+                <div style='font-size:13px;font-weight:700;color:#0f172a;'>A — 88/100</div>
+              </div>
+            </div>
+
+            <!-- KPI row -->
+            <div style='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;'>
+              <div style='background:#eff6ff;border-radius:6px;padding:10px;text-align:center;'>
+                <div style='font-size:9px;color:""" + ac + """;font-weight:700;'>LEVERED IRR</div>
+                <div style='font-size:18px;font-weight:800;color:#0f172a;'>18.4%</div>
+              </div>
+              <div style='background:#eff6ff;border-radius:6px;padding:10px;text-align:center;'>
+                <div style='font-size:9px;color:""" + ac + """;font-weight:700;'>EQUITY MULT</div>
+                <div style='font-size:18px;font-weight:800;color:#0f172a;'>2.21x</div>
+              </div>
+              <div style='background:#eff6ff;border-radius:6px;padding:10px;text-align:center;'>
+                <div style='font-size:9px;color:""" + ac + """;font-weight:700;'>GP IRR</div>
+                <div style='font-size:18px;font-weight:800;color:#0f172a;'>24.1%</div>
+              </div>
+              <div style='background:#eff6ff;border-radius:6px;padding:10px;text-align:center;'>
+                <div style='font-size:9px;color:""" + ac + """;font-weight:700;'>LOSS PROB</div>
+                <div style='font-size:18px;font-weight:800;color:#0f172a;'>3.2%</div>
+              </div>
+            </div>
+
+            <!-- Recommendation -->
+            <div style='background:#dcfce7;border-radius:8px;padding:14px;text-align:center;'>
+              <div style='font-size:10px;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:1px;'>Committee Recommendation</div>
+              <div style='font-size:22px;font-weight:900;color:#166534;'>APPROVE</div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style='background:#f8fafc;padding:10px 26px;font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;'>
+            <span>""" + ft + """</span>
+            <span>""" + (website if website else "aire.rent") + """</span>
+          </div>
+        </div>
+        """
+
+        st.markdown("<div style='font-size:13px;font-weight:700;color:#0f172a;margin-bottom:12px;'>📄 Memo Preview</div>", unsafe_allow_html=True)
+        st.markdown(preview_html, unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Where branding is applied
+        st.markdown("""
+        <div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;'>
+          <div style='font-size:11px;font-weight:700;color:#334155;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;'>Applied Across</div>
+          <div style='display:grid;grid-template-columns:1fr 1fr;gap:6px;'>
+            <div style='font-size:12px;color:#64748b;'>✅ IC Memo Generator</div>
+            <div style='font-size:12px;color:#64748b;'>✅ Memo Email Delivery</div>
+            <div style='font-size:12px;color:#64748b;'>✅ LP Investor Portal</div>
+            <div style='font-size:12px;color:#64748b;'>✅ PDF Exports</div>
+            <div style='font-size:12px;color:#64748b;'>✅ LP Report PDF</div>
+            <div style='font-size:12px;color:#64748b;'>✅ Broker Emails</div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
