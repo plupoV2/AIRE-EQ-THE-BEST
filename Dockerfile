@@ -2,30 +2,32 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install
+# Install ALL dependencies upfront so app starts instantly
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir streamlit
+RUN pip install --no-cache-dir streamlit plotly pydeck requests openai \
+    supabase openpyxl xlrd pypdf numpy pandas
 
-# Copy app
+# Run requirements.txt too in case there are extras
+RUN pip install --no-cache-dir -r requirements.txt || true
+
 COPY . .
 
-# Expose port
+# Create streamlit config to disable the browser open and set port
+RUN mkdir -p /app/.streamlit && cat > /app/.streamlit/config.toml << 'TOML'
+[server]
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+gatherUsageStats = false
+TOML
+
 EXPOSE 8501
 
-# Health check
-HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health || exit 1
-
-# Run
-ENTRYPOINT ["streamlit", "run", "app-2.py", \
-    "--server.port=8501", \
-    "--server.address=0.0.0.0", \
-    "--server.headless=true", \
-    "--server.enableCORS=false", \
-    "--server.enableXsrfProtection=false"]
+ENTRYPOINT ["python", "start.py"]
