@@ -72,8 +72,95 @@ def inject_css():
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
 
       html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-      .stApp { background: #f0f2f5; }
+      .stApp { background: #eef0f5; }
       #MainMenu, footer, header { visibility: hidden; }
+
+      /* ── Page layout breathing room ── */
+      .block-container { padding-top: 2rem !important; padding-bottom: 2rem !important; }
+
+      /* ── Streamlit native containers ── */
+      [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"] { gap: 0.75rem; }
+
+      /* ── Inputs ── */
+      [data-testid="stTextInput"] input, [data-testid="stNumberInput"] input,
+      [data-testid="stTextArea"] textarea {
+        border-radius: 8px !important;
+        border: 1.5px solid #e2e8f0 !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 13px !important;
+        transition: border-color 0.15s, box-shadow 0.15s !important;
+      }
+      [data-testid="stTextInput"] input:focus, [data-testid="stNumberInput"] input:focus,
+      [data-testid="stTextArea"] textarea:focus {
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 3px rgba(37,99,235,0.10) !important;
+      }
+
+      /* ── Select boxes ── */
+      [data-testid="stSelectbox"] > div > div {
+        border-radius: 8px !important;
+        border: 1.5px solid #e2e8f0 !important;
+        font-size: 13px !important;
+      }
+
+      /* ── Primary buttons ── */
+      .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #1d4ed8, #2563eb) !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.3px !important;
+        box-shadow: 0 2px 8px rgba(37,99,235,0.25) !important;
+        transition: all 0.15s !important;
+      }
+      .stButton > button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #1e40af, #1d4ed8) !important;
+        box-shadow: 0 4px 16px rgba(37,99,235,0.35) !important;
+        transform: translateY(-1px) !important;
+      }
+
+      /* ── Secondary buttons ── */
+      .stButton > button[kind="secondary"] {
+        border-radius: 8px !important;
+        border: 1.5px solid #e2e8f0 !important;
+        font-weight: 600 !important;
+        transition: all 0.15s !important;
+      }
+      .stButton > button[kind="secondary"]:hover {
+        border-color: #2563eb !important;
+        color: #2563eb !important;
+        background: #eff6ff !important;
+      }
+
+      /* ── Tabs ── */
+      [data-testid="stTabs"] [data-baseweb="tab-list"] {
+        background: #f1f5f9 !important;
+        border-radius: 10px !important;
+        padding: 4px !important;
+        gap: 2px !important;
+      }
+      [data-testid="stTabs"] [data-baseweb="tab"] {
+        border-radius: 7px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        color: #64748b !important;
+        padding: 8px 18px !important;
+      }
+      [data-testid="stTabs"] [aria-selected="true"] {
+        background: #fff !important;
+        color: #0f172a !important;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.08) !important;
+      }
+
+      /* ── Expanders ── */
+      [data-testid="stExpander"] {
+        border: 1.5px solid #e2e8f0 !important;
+        border-radius: 10px !important;
+        background: #fff !important;
+      }
+
+      /* ── Dataframes ── */
+      [data-testid="stDataFrame"] { border-radius: 8px !important; overflow: hidden !important; }
 
       /* ── Sidebar ── */
       [data-testid="stSidebar"] { background: #07111f !important; border-right: 1px solid #1a2840; }
@@ -774,38 +861,45 @@ Return JSON with exactly these keys:
         }
 
 
-def send_ic_memo_email(to_email: str, deal: dict, memo_text: str, rec: str,
-                        sender_name: str) -> tuple:
-    """Send IC memo via SendGrid or SMTP. Returns (success, error)."""
+def build_email_html(deal: dict, memo_text: str, rec: str, sender_name: str) -> str:
+    """Build branded HTML email body."""
+    wl        = st.session_state.get("whitelabel", {})
+    firm_name = wl.get("firm_name", "AIRE")
+    header_bg = wl.get("primary", "#07111f")
+    accent    = wl.get("accent",  "#3b82f6")
+    footer_t  = wl.get("footer",  "Confidential — AIRE Institutional Underwriting")
     rec_color = {"APPROVE":"#166534","APPROVE WITH CONDITIONS":"#92400e","DECLINE":"#991b1b"}.get(rec,"#334155")
     rec_bg    = {"APPROVE":"#dcfce7","APPROVE WITH CONDITIONS":"#fef9c3","DECLINE":"#fee2e2"}.get(rec,"#f8fafc")
+    safe_memo = memo_text.replace("\n","<br>") if memo_text else ""
 
-    html_body = f"""
-    <!DOCTYPE html><html><head><meta charset="utf-8">
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
     <style>
       body{{font-family:Arial,sans-serif;background:#f0f2f5;margin:0;padding:20px;}}
-      .card{{background:#fff;border-radius:10px;max-width:680px;margin:0 auto;overflow:hidden;}}
-      .header{{background:#07111f;padding:24px 32px;}}
-      .logo{{font-size:28px;font-weight:900;color:#fff;letter-spacing:-1px;}}
-      .sub{{font-size:10px;color:#3b82f6;font-weight:700;letter-spacing:2px;text-transform:uppercase;}}
+      .wrap{{max-width:640px;margin:0 auto;}}
+      .card{{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);}}
+      .hdr{{background:{header_bg};padding:26px 32px;}}
+      .logo{{font-size:26px;font-weight:900;color:#fff;letter-spacing:-1px;}}
+      .sub{{font-size:9px;color:{accent};font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-top:2px;}}
+      .date{{font-size:11px;color:rgba(255,255,255,0.5);margin-top:8px;border-top:1px solid rgba(255,255,255,0.1);padding-top:8px;}}
       .body{{padding:28px 32px;}}
-      .meta{{background:#f8fafc;border-radius:8px;padding:16px;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr;gap:12px;}}
-      .lbl{{font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;}}
-      .val{{font-size:14px;font-weight:700;color:#0f172a;}}
-      .kpis{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}}
+      .meta{{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#f8fafc;border-radius:8px;padding:16px;margin-bottom:20px;}}
+      .lbl{{font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:2px;}}
+      .val{{font-size:13px;font-weight:700;color:#0f172a;}}
+      .section-title{{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:8px;}}
+      .summary{{font-size:13px;line-height:1.8;color:#334155;margin-bottom:20px;}}
+      .kpis{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;}}
       .kpi{{background:#eff6ff;border-radius:6px;padding:12px;text-align:center;}}
-      .kl{{font-size:10px;color:#1d4ed8;font-weight:700;}}
-      .kv{{font-size:18px;font-weight:800;color:#0f172a;}}
-      .rec{{background:{rec_bg};border-radius:8px;padding:16px;text-align:center;margin-top:20px;}}
-      .rl{{font-size:11px;color:{rec_color};font-weight:700;letter-spacing:1px;text-transform:uppercase;}}
-      .rv{{font-size:22px;font-weight:900;color:{rec_color};}}
-      .footer{{background:#f8fafc;padding:16px 32px;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0;}}
-    </style></head><body>
-    <div class="card">
-      <div class="header">
-        <div class="logo">AIRE</div>
+      .kl{{font-size:9px;color:{accent};font-weight:700;text-transform:uppercase;}}
+      .kv{{font-size:17px;font-weight:800;color:#0f172a;margin-top:3px;}}
+      .rec{{background:{rec_bg};border-radius:8px;padding:16px;text-align:center;}}
+      .rl{{font-size:10px;color:{rec_color};font-weight:700;letter-spacing:1px;text-transform:uppercase;}}
+      .rv{{font-size:22px;font-weight:900;color:{rec_color};margin-top:4px;}}
+      .footer{{background:#f8fafc;padding:14px 32px;font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;}}
+    </style></head><body><div class="wrap"><div class="card">
+      <div class="hdr">
+        <div class="logo">{firm_name}</div>
         <div class="sub">Investment Committee Memorandum</div>
-        <div style="font-size:12px;color:#8ea5c0;margin-top:4px;">{datetime.now().strftime("%B %d, %Y")} &nbsp;|&nbsp; Prepared by {sender_name}</div>
+        <div class="date">{datetime.now().strftime("%B %d, %Y")} &nbsp;|&nbsp; Prepared by {sender_name}</div>
       </div>
       <div class="body">
         <div class="meta">
@@ -814,68 +908,126 @@ def send_ic_memo_email(to_email: str, deal: dict, memo_text: str, rec: str,
           <div><div class="lbl">Purchase Price</div><div class="val">${deal["purchase_price"]/1e6:.1f}M</div></div>
           <div><div class="lbl">Deal Grade</div><div class="val">{deal["grade"]} — {deal["score"]}/100</div></div>
         </div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:8px;">Executive Summary</div>
-        <div style="font-size:13px;line-height:1.8;color:#334155;margin-bottom:20px;">{memo_text}</div>
+        <div class="section-title">Executive Summary</div>
+        <div class="summary">{safe_memo if safe_memo else "<em style='color:#94a3b8;'>No summary generated yet.</em>"}</div>
         <div class="kpis">
           <div class="kpi"><div class="kl">Levered IRR</div><div class="kv">{deal["irr"]:.1%}</div></div>
           <div class="kpi"><div class="kl">Equity Mult</div><div class="kv">{deal["equity_mult"]:.2f}x</div></div>
           <div class="kpi"><div class="kl">GP IRR</div><div class="kv">{deal["gp_irr"]:.1%}</div></div>
           <div class="kpi"><div class="kl">Loss Prob</div><div class="kv">{deal["loss_prob"]:.1%}</div></div>
         </div>
-        <div class="rec">
-          <div class="rl">Committee Recommendation</div>
-          <div class="rv">{rec}</div>
-        </div>
+        <div class="rec"><div class="rl">Committee Recommendation</div><div class="rv">{rec}</div></div>
       </div>
-      <div class="footer">Confidential &mdash; AIRE Institutional Underwriting &nbsp;|&nbsp; Do not forward without authorization.</div>
-    </div>
-    </body></html>"""
+      <div class="footer"><span>{footer_t}</span><span>Do not forward without authorization.</span></div>
+    </div></div></body></html>"""
 
-    # Try SendGrid first
-    sg_key = st.secrets.get("SENDGRID_API_KEY","")
-    from_email = st.secrets.get("SENDGRID_FROM_EMAIL","noreply@aire.io")
 
-    if sg_key:
+def detect_email_provider() -> str:
+    """Detect which email provider is configured. Returns provider name or empty string."""
+    if st.secrets.get("SENDGRID_API_KEY",""):      return "sendgrid"
+    if st.secrets.get("MAILGUN_API_KEY",""):        return "mailgun"
+    if st.secrets.get("RESEND_API_KEY",""):         return "resend"
+    if st.secrets.get("SMTP_HOST",""):              return "smtp"
+    return ""
+
+
+def send_email_universal(to_email: str, subject: str, html_body: str,
+                          from_name: str = "AIRE Platform") -> tuple:
+    """Send email via whichever provider is configured. Returns (success, error)."""
+    provider = detect_email_provider()
+
+    # ── SendGrid ──
+    if provider == "sendgrid":
         try:
-            payload = {
-                "personalizations": [{"to": [{"email": to_email}]}],
-                "from": {"email": from_email, "name": "AIRE Platform"},
-                "subject": f"IC Memo: {deal['name']} — {rec}",
-                "content": [{"type": "text/html", "value": html_body}]
-            }
+            from_addr = st.secrets.get("SENDGRID_FROM_EMAIL","noreply@aire.io")
             resp = requests.post(
                 "https://api.sendgrid.com/v3/mail/send",
-                headers={"Authorization": f"Bearer {sg_key}", "Content-Type": "application/json"},
-                json=payload, timeout=10
+                headers={"Authorization": f"Bearer {st.secrets.get('SENDGRID_API_KEY')}",
+                         "Content-Type": "application/json"},
+                json={"personalizations": [{"to": [{"email": to_email}]}],
+                      "from": {"email": from_addr, "name": from_name},
+                      "subject": subject,
+                      "content": [{"type": "text/html", "value": html_body}]},
+                timeout=12
             )
             if resp.status_code in (200, 202):
                 return True, None
-            return False, f"SendGrid error {resp.status_code}: {resp.text}"
+            return False, f"SendGrid {resp.status_code}: {resp.text[:200]}"
         except Exception as e:
             return False, str(e)
 
-    # Fallback: SMTP
-    smtp_host = st.secrets.get("SMTP_HOST","")
-    smtp_user = st.secrets.get("SMTP_USER","")
-    smtp_pass = st.secrets.get("SMTP_PASS","")
-    if smtp_host and smtp_user:
+    # ── Mailgun ──
+    if provider == "mailgun":
+        try:
+            domain   = st.secrets.get("MAILGUN_DOMAIN","")
+            from_addr= st.secrets.get("MAILGUN_FROM", f"noreply@{domain}")
+            resp = requests.post(
+                f"https://api.mailgun.net/v3/{domain}/messages",
+                auth=("api", st.secrets.get("MAILGUN_API_KEY","")),
+                data={"from": f"{from_name} <{from_addr}>",
+                      "to": to_email, "subject": subject, "html": html_body},
+                timeout=12
+            )
+            if resp.status_code == 200:
+                return True, None
+            return False, f"Mailgun {resp.status_code}: {resp.text[:200]}"
+        except Exception as e:
+            return False, str(e)
+
+    # ── Resend ──
+    if provider == "resend":
+        try:
+            from_addr = st.secrets.get("RESEND_FROM","onboarding@resend.dev")
+            resp = requests.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {st.secrets.get('RESEND_API_KEY')}",
+                         "Content-Type": "application/json"},
+                json={"from": f"{from_name} <{from_addr}>",
+                      "to": [to_email], "subject": subject, "html": html_body},
+                timeout=12
+            )
+            if resp.status_code in (200, 201):
+                return True, None
+            return False, f"Resend {resp.status_code}: {resp.text[:200]}"
+        except Exception as e:
+            return False, str(e)
+
+    # ── SMTP (Gmail, Outlook, custom) ──
+    if provider == "smtp":
         try:
             import smtplib
             from email.mime.multipart import MIMEMultipart
             from email.mime.text import MIMEText
+            smtp_host = st.secrets.get("SMTP_HOST","smtp.gmail.com")
+            smtp_port = int(st.secrets.get("SMTP_PORT","587"))
+            smtp_user = st.secrets.get("SMTP_USER","")
+            smtp_pass = st.secrets.get("SMTP_PASS","")
             msg = MIMEMultipart("alternative")
-            msg["Subject"] = f"IC Memo: {deal['name']} — {rec}"
-            msg["From"]    = smtp_user
+            msg["Subject"] = subject
+            msg["From"]    = f"{from_name} <{smtp_user}>"
             msg["To"]      = to_email
             msg.attach(MIMEText(html_body, "html"))
-            with smtplib.SMTP_SSL(smtp_host, 465) as server:
-                server.login(smtp_user, smtp_pass)
-                server.sendmail(smtp_user, to_email, msg.as_string())
+            if smtp_port == 465:
+                with smtplib.SMTP_SSL(smtp_host, 465) as srv:
+                    srv.login(smtp_user, smtp_pass)
+                    srv.sendmail(smtp_user, to_email, msg.as_string())
+            else:
+                with smtplib.SMTP(smtp_host, smtp_port) as srv:
+                    srv.ehlo(); srv.starttls(); srv.ehlo()
+                    srv.login(smtp_user, smtp_pass)
+                    srv.sendmail(smtp_user, to_email, msg.as_string())
             return True, None
         except Exception as e:
             return False, str(e)
 
-    return False, "No email provider configured. Add SENDGRID_API_KEY or SMTP_HOST/SMTP_USER/SMTP_PASS to Streamlit secrets."
+    return False, "no_provider"
+
+
+def send_ic_memo_email(to_email: str, deal: dict, memo_text: str,
+                        rec: str, sender_name: str) -> tuple:
+    html = build_email_html(deal, memo_text, rec, sender_name)
+    subj = f"IC Memo: {deal['name']} — {rec}"
+    return send_email_universal(to_email, subj, html, sender_name)
 
 
 
@@ -1831,6 +1983,71 @@ def view_settings():
         else:
             st.session_state.settings = s  # still apply locally
             st.warning(f"Settings applied this session but DB save failed: {err}")
+
+    # ── Email Provider Setup Wizard ──
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:18px;font-weight:800;color:#0f172a;margin-bottom:6px;'>📧 Email Provider Setup</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:13px;color:#64748b;margin-bottom:20px;'>Configure how AIRE sends IC memos, team invites, and broker emails. Pick one provider below.</div>", unsafe_allow_html=True)
+
+    provider = detect_email_provider()
+    prov_labels = {"sendgrid":"SendGrid","mailgun":"Mailgun","resend":"Resend","smtp":"SMTP / Gmail"}
+    if provider:
+        st.success(f"✅ **{prov_labels.get(provider, provider)}** is connected and ready to send emails.", icon="📬")
+    else:
+        st.warning("No email provider configured yet. Follow one of the guides below.", icon="📧")
+
+    email_tab1, email_tab2, email_tab3, email_tab4 = st.tabs(["✅ Resend (Recommended)", "SendGrid", "Mailgun", "Gmail / SMTP"])
+
+    with email_tab1:
+        with st.container(border=True):
+            st.markdown("<div style='font-size:13px;font-weight:700;color:#166534;margin-bottom:4px;'>Resend — Easiest Setup</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:12px;color:#64748b;margin-bottom:14px;'>Free tier: 3,000 emails/month. No credit card. 2-minute setup.</div>", unsafe_allow_html=True)
+            st.markdown("1. Go to **resend.com** → Sign up free → API Keys → Create Key")
+            st.markdown("2. Add a verified domain or use their free `@resend.dev` address to start")
+            st.markdown("3. Add these to your **Railway Variables** or **Streamlit Secrets**:")
+            st.code("RESEND_API_KEY = re_xxxxxxxxxxxx\nRESEND_FROM   = you@yourdomain.com", language="bash")
+
+
+    with email_tab2:
+        with st.container(border=True):
+            st.markdown("<div style='font-size:13px;font-weight:700;color:#1d4ed8;margin-bottom:4px;'>SendGrid — Most Popular</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:12px;color:#64748b;margin-bottom:14px;'>Free tier: 100 emails/day. Requires sender verification.</div>", unsafe_allow_html=True)
+            st.markdown("1. Go to **sendgrid.com** → Sign up → Settings → API Keys → Create API Key")
+            st.markdown("2. Settings → Sender Authentication → Verify a Single Sender → confirm your email")
+            st.markdown("3. Add to secrets:")
+            st.code("SENDGRID_API_KEY    = SG.xxxxxxxxxxxx\nSENDGRID_FROM_EMAIL = you@youremail.com", language="bash")
+
+
+    with email_tab3:
+        with st.container(border=True):
+            st.markdown("<div style='font-size:13px;font-weight:700;color:#92400e;margin-bottom:4px;'>Mailgun — Best for High Volume</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:12px;color:#64748b;margin-bottom:14px;'>Free tier: 5,000 emails/month for 3 months. Requires domain.</div>", unsafe_allow_html=True)
+            st.markdown("1. Go to **mailgun.com** → Sign up → Sending → Domains → Add Domain")
+            st.markdown("2. Get your API key from the API Keys section")
+            st.markdown("3. Add to secrets:")
+            st.code("MAILGUN_API_KEY = key-xxxxxxxxxxxx\nMAILGUN_DOMAIN  = mg.yourdomain.com\nMAILGUN_FROM    = noreply@mg.yourdomain.com", language="bash")
+
+
+
+    with email_tab4:
+        with st.container(border=True):
+            st.markdown("<div style='font-size:13px;font-weight:700;color:#334155;margin-bottom:4px;'>Gmail / SMTP — Use Any Email</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:12px;color:#64748b;margin-bottom:14px;'>Works with Gmail, Outlook, or any SMTP server. Free with your existing account.</div>", unsafe_allow_html=True)
+            st.markdown("**Gmail setup:**")
+            st.markdown("1. myaccount.google.com → Security → 2-Step Verification → turn ON")
+            st.markdown("2. Security → App Passwords → Generate → copy the 16-character password")
+            st.markdown("3. Add to secrets:")
+            st.code("SMTP_HOST = smtp.gmail.com\nSMTP_PORT = 587\nSMTP_USER = you@gmail.com\nSMTP_PASS = xxxx xxxx xxxx xxxx", language="bash")
+
+
+
+            st.markdown("**Outlook / Office 365:**")
+            st.code("SMTP_HOST = smtp.office365.com\nSMTP_PORT = 587\nSMTP_USER = you@yourfirm.com\nSMTP_PASS = yourpassword", language="bash")
+
+
+
+            st.caption("After adding secrets, redeploy your Railway app for changes to take effect.")
+
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -3310,14 +3527,15 @@ Write 2 concise professional paragraphs. Use specific metrics. No fluff."""
             """, unsafe_allow_html=True)
 
             # Email setup hint
-            has_sg   = bool(st.secrets.get("SENDGRID_API_KEY",""))
-            has_smtp = bool(st.secrets.get("SMTP_HOST",""))
-            if not has_sg and not has_smtp:
-                st.warning("⚠️ Email not configured. Add `SENDGRID_API_KEY` to Streamlit secrets to enable sending. Get a free key at sendgrid.com.", icon="📧")
-            elif has_sg:
-                st.success("✅ SendGrid connected — emails will deliver instantly", icon="📬")
+            _prov = detect_email_provider()
+            _prov_labels = {"sendgrid":"SendGrid","mailgun":"Mailgun","resend":"Resend","smtp":"SMTP / Gmail"}
+            if not _prov:
+                st.warning("⚠️ No email provider connected yet.", icon="📧")
+                if st.button("⚙️ Set up email in Settings", use_container_width=True):
+                    st.session_state.current_view = "Settings"
+                    st.rerun()
             else:
-                st.success("✅ SMTP connected", icon="📬")
+                st.success(f"✅ {_prov_labels.get(_prov, _prov)} connected — ready to send", icon="📬")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
