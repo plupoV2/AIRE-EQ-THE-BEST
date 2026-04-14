@@ -107,8 +107,11 @@ def inject_css():
         font-size: 13px !important;
       }
 
-      /* ── Primary buttons — AIRE sky-to-navy gradient ── */
-      .stButton > button[kind="primary"] {
+      /* ── Primary buttons + form submit — AIRE sky-to-navy gradient ── */
+      .stButton > button[kind="primary"],
+      .stButton > button[kind="primaryFormSubmit"],
+      [data-testid="stFormSubmitButton"] > button,
+      button[kind="primaryFormSubmit"] {
         background: linear-gradient(135deg, #1b4fa8, #1a9fd4) !important;
         border: none !important;
         border-radius: 8px !important;
@@ -118,10 +121,14 @@ def inject_css():
         transition: all 0.15s !important;
         color: #fff !important;
       }
-      .stButton > button[kind="primary"]:hover {
+      .stButton > button[kind="primary"]:hover,
+      .stButton > button[kind="primaryFormSubmit"]:hover,
+      [data-testid="stFormSubmitButton"] > button:hover,
+      button[kind="primaryFormSubmit"]:hover {
         background: linear-gradient(135deg, #0d1f3c, #1b4fa8) !important;
         box-shadow: 0 4px 18px rgba(26,159,212,0.40) !important;
         transform: translateY(-1px) !important;
+        color: #fff !important;
       }
 
       /* ── Secondary buttons ── */
@@ -1355,7 +1362,7 @@ def render_login():
                     else:
                         st.error("Please enter your email and password.")
 
-        st.markdown("<div style='font-size:11px;color:#94a3b8;margin-top:20px;text-align:center;'>aire.rent &nbsp;&bull;&nbsp; Patent Pending &nbsp;&bull;&nbsp; &copy; 2025 AIRE Technologies</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:11px;color:#94a3b8;margin-top:20px;text-align:center;'>aire.rent &nbsp;&bull;&nbsp; Patent Pending &nbsp;&bull;&nbsp; &copy; {datetime.now().year} AIRE Technologies</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
