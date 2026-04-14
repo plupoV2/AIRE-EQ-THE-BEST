@@ -1272,21 +1272,38 @@ def check_irr_alerts(properties, threshold=0.02):
 def render_login():
     year = datetime.now().year
 
+    # Full-screen login CSS — hides sidebar, removes all padding
     st.markdown("""
     <style>
-      [data-testid="stSidebar"] { display: none !important; }
-      .block-container { padding: 0 !important; max-width: 100% !important; }
-      header { display: none !important; }
+      [data-testid="stSidebar"]  { display:none !important; }
+      .block-container           { padding:0 !important; max-width:100% !important; }
+      header, footer             { display:none !important; }
+      /* Make the left branded half fill screen height */
+      .login-hero {
+        background: linear-gradient(160deg,#0d1f3c 0%,#1b4fa8 55%,#1a9fd4 100%);
+        min-height: 100vh;
+        padding: 60px 48px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      /* Right panel background */
+      .login-right {
+        background: #f8fafc;
+        min-height: 100vh;
+      }
     </style>
     """, unsafe_allow_html=True)
 
     col_left, col_right = st.columns([1, 1], gap="small")
 
-    # ── Left: branding panel ──
+    # ── LEFT: full branded panel ──
     with col_left:
         bullets_html = "".join([
             f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">' +
-            f'<div style="width:32px;height:32px;background:rgba(255,255,255,0.12);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">{icon}</div>' +
+            f'<div style="width:34px;height:34px;background:rgba(255,255,255,0.13);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">{icon}</div>' +
             f'<div style="font-size:13px;color:rgba(255,255,255,0.78);">{txt}</div></div>'
             for icon, txt in [
                 ("🎯", "AI deal scoring vs 10,000+ comps"),
@@ -1297,53 +1314,51 @@ def render_login():
             ]
         ])
         st.markdown(f"""
-        <div style="background:linear-gradient(160deg,#0d1f3c 0%,#1b4fa8 55%,#1a9fd4 100%);
-                    min-height:100vh;display:flex;flex-direction:column;
-                    align-items:center;justify-content:center;
-                    padding:60px 40px;box-sizing:border-box;">
-          <div style="background:#fff;border-radius:20px;padding:24px 30px;
-                      margin-bottom:32px;box-shadow:0 8px 40px rgba(0,0,0,0.22);
+        <div class="login-hero">
+          <div style="background:#fff;border-radius:20px;padding:22px 28px;
+                      margin-bottom:28px;box-shadow:0 8px 40px rgba(0,0,0,0.22);
                       display:inline-block;">
-            <img src="{AIRE_LOGO_URI}" style="height:110px;display:block;" />
+            <img src="{AIRE_LOGO_URI}" style="height:100px;display:block;" />
           </div>
           <div style="font-size:13px;color:rgba(255,255,255,0.82);font-weight:600;
-                      letter-spacing:3px;text-transform:uppercase;text-align:center;margin-bottom:8px;">
+                      letter-spacing:3px;text-transform:uppercase;text-align:center;margin-bottom:6px;">
             Integrated Real Estate
           </div>
           <div style="font-size:11px;color:rgba(255,255,255,0.45);letter-spacing:2px;
-                      text-transform:uppercase;text-align:center;margin-bottom:36px;">
+                      text-transform:uppercase;text-align:center;margin-bottom:32px;">
             Institutional Underwriting Platform
           </div>
-          <div style="max-width:300px;width:100%;">{bullets_html}</div>
-          <div style="margin-top:44px;font-size:10px;color:rgba(255,255,255,0.28);
-                      text-align:center;letter-spacing:1px;">
+          <div style="max-width:300px;width:100%;margin-bottom:40px;">{bullets_html}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.28);text-align:center;letter-spacing:1px;">
             Patent Pending &nbsp;|&nbsp; &copy; {year} AIRE Technologies
           </div>
         </div>
         """, unsafe_allow_html=True)
 
-    # ── Right: login form ──
+    # ── RIGHT: form — rendered at the TOP of column, styled to look centred ──
     with col_right:
-        # Push form down to vertical center using spacer
-        st.markdown(f"""
-        <div style="background:#f8fafc;min-height:100vh;display:flex;
-                    flex-direction:column;justify-content:center;
-                    padding:0 48px;box-sizing:border-box;">
-          <div style="font-size:28px;font-weight:900;color:#0d1f3c;margin-bottom:6px;">
-            Welcome back
-          </div>
-          <div style="font-size:14px;color:#64748b;margin-bottom:32px;">
-            Sign in to your AIRE account
-          </div>
-        </div>
+        # Use CSS to push content to vertical center via padding-top trick
+        st.markdown("""
+        <style>
+          /* Target the right column's block wrapper directly */
+          [data-testid="column"]:nth-child(2) > div:first-child {
+            background: #f8fafc;
+            min-height: 100vh;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            padding: 0 !important;
+          }
+        </style>
         """, unsafe_allow_html=True)
 
-        # Proper vertical centering using empty cols trick
-        _, form_col, _ = st.columns([0.08, 0.84, 0.08])
-        with form_col:
-            st.markdown("<br>" * 10, unsafe_allow_html=True)
-            st.markdown(f"<div style='font-size:26px;font-weight:900;color:#0d1f3c;margin-bottom:4px;'>Welcome back</div>", unsafe_allow_html=True)
-            st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:20px;'>Sign in to your AIRE account</div>", unsafe_allow_html=True)
+        # Spacer to push form to middle
+        st.markdown("<div style='height:22vh'></div>", unsafe_allow_html=True)
+
+        _, fc, _ = st.columns([0.1, 0.8, 0.1])
+        with fc:
+            st.markdown(f"<div style='font-size:28px;font-weight:900;color:#0d1f3c;margin-bottom:4px;'>Welcome back</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:24px;'>Sign in to your AIRE account</div>", unsafe_allow_html=True)
 
             with st.form("login_form"):
                 email    = st.text_input("Corporate Email", placeholder="analyst@firm.com")
@@ -1371,7 +1386,7 @@ def render_login():
                         else:
                             st.error("Please enter your email and password.")
 
-            st.markdown(f"<div style='font-size:11px;color:#94a3b8;margin-top:16px;text-align:center;'>aire.rent &nbsp;&bull;&nbsp; Patent Pending &nbsp;&bull;&nbsp; &copy; {year} AIRE Technologies</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:11px;color:#94a3b8;margin-top:14px;text-align:center;'>aire.rent &nbsp;&bull;&nbsp; Patent Pending &nbsp;&bull;&nbsp; &copy; {year} AIRE Technologies</div>", unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # SECTION 5 │ CHARTS
