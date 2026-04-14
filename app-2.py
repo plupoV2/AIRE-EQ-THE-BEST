@@ -172,26 +172,45 @@ def inject_css():
       [data-testid="stSidebar"] * { color: #93b4d4 !important; }
       [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2 { color: #e8f0fa !important; }
       [data-testid="stSidebar"] .stButton > button {
-        width: 100%; text-align: left; background: transparent; border: none;
-        color: #93b4d4 !important; padding: 10px 14px; border-radius: 7px;
+        width: 100%; text-align: left; background: transparent !important;
+        border: none !important; outline: none !important;
+        color: #93b4d4 !important; padding: 8px 14px; border-radius: 6px;
         font-size: 13px; font-weight: 500; transition: all 0.15s;
-        border-left: 3px solid transparent !important;
+        box-shadow: none !important;
       }
       [data-testid="stSidebar"] .stButton > button:hover {
-        background: rgba(26,159,212,0.12) !important;
+        background: rgba(26,159,212,0.10) !important;
         color: #e8f0fa !important;
-        border-left: 3px solid #1a9fd4 !important;
+        box-shadow: none !important;
+      }
+      [data-testid="stSidebar"] .stButton > button:focus {
+        box-shadow: none !important;
+        border: none !important;
+        outline: none !important;
+      }
+      /* Remove Streamlit's default button borders everywhere in sidebar */
+      [data-testid="stSidebar"] .stButton > button * { box-shadow: none !important; }
+      [data-testid="stSidebar"] [data-testid="baseButton-secondary"] {
+        border: none !important; box-shadow: none !important;
+        background: transparent !important;
       }
 
       /* ── Keep sidebar always open — hide the collapse/expand toggle ── */
       [data-testid="collapsedControl"] { display: none !important; }
       button[data-testid="baseButton-header"] { display: none !important; }
       section[data-testid="stSidebar"] {
-        min-width: 240px !important;
-        width: 240px !important;
+        min-width: 252px !important;
+        width: 252px !important;
         transform: translateX(0) !important;
         visibility: visible !important;
       }
+      /* Kill ALL button borders/outlines in sidebar */
+      [data-testid="stSidebar"] button {
+        border: none !important;
+        box-shadow: none !important;
+        outline: none !important;
+      }
+      [data-testid="stSidebar"] .stButton { margin-bottom: 2px !important; }
 
       /* ── Metric Cards ── */
       div[data-testid="metric-container"] {
@@ -1249,7 +1268,7 @@ def render_login():
     st.markdown(f'''
     <div style="background:linear-gradient(160deg,#0d1f3c 0%,#1b4fa8 60%,#1a9fd4 100%);
                 padding:40px 20px 50px;text-align:center;margin:-1rem -1rem 0;">
-      <img src="{AIRE_LOGO_URI}" style="height:90px;margin-bottom:16px;filter:brightness(0) invert(1);" />
+      <img src="{AIRE_LOGO_URI}" style="height:90px;margin-bottom:16px;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.25);" />
       <div style="font-size:13px;color:rgba(255,255,255,0.70);font-weight:600;letter-spacing:3px;
                   text-transform:uppercase;">Integrated Real Estate Underwriting Platform</div>
       <div style="font-size:10px;color:rgba(255,255,255,0.40);margin-top:6px;letter-spacing:1px;">
@@ -4329,7 +4348,7 @@ def render_sidebar():
         st.markdown(f'''
         <div style="padding:16px 8px 24px 8px;border-bottom:1px solid rgba(255,255,255,0.07);margin-bottom:8px;">
           <img src="{AIRE_LOGO_URI}"
-               style="height:52px;display:block;margin:0 auto 10px;filter:brightness(0) invert(1);opacity:0.95;" />
+               style="height:56px;display:block;margin:0 auto 10px;border-radius:8px;" />
           <div style="text-align:center;font-size:9px;color:#4d9fd4;font-weight:700;
                       letter-spacing:2px;text-transform:uppercase;">Integrated Real Estate</div>
           <div style="text-align:center;font-size:8px;color:rgba(255,255,255,0.25);
