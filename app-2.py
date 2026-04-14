@@ -1263,51 +1263,100 @@ def check_irr_alerts(properties, threshold=0.02):
 # SECTION 4 │ AUTH
 # ──────────────────────────────────────────────────────────────────────────────
 def render_login():
-    st.markdown("<br>", unsafe_allow_html=True)
-    # Full-width hero then centred form
-    st.markdown(f'''
-    <div style="background:linear-gradient(160deg,#0d1f3c 0%,#1b4fa8 60%,#1a9fd4 100%);
-                padding:40px 20px 50px;text-align:center;margin:-1rem -1rem 0;">
-      <img src="{AIRE_LOGO_URI}" style="height:90px;margin-bottom:16px;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.25);" />
-      <div style="font-size:13px;color:rgba(255,255,255,0.70);font-weight:600;letter-spacing:3px;
-                  text-transform:uppercase;">Integrated Real Estate Underwriting Platform</div>
-      <div style="font-size:10px;color:rgba(255,255,255,0.40);margin-top:6px;letter-spacing:1px;">
-        Patent Pending &nbsp;|&nbsp; &copy; {datetime.now().year} AIRE Technologies
-      </div>
-    </div>
-    ''', unsafe_allow_html=True)
+    # Hide all Streamlit chrome for login page
+    st.markdown("""
+    <style>
+      .stApp { background: #f0f4f8 !important; }
+      [data-testid="stSidebar"] { display: none !important; }
+      .block-container { padding: 0 !important; max-width: 100% !important; }
+      header { display: none !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns([1, 1.1, 1])
-    with c2:
-        with st.container(border=True):
-            st.markdown("<div style='text-align:center;margin-bottom:20px;'><div style='font-size:16px;font-weight:800;color:#0d1f3c;'>Sign in to your account</div></div>", unsafe_allow_html=True)
-            with st.form("login_form"):
-                email    = st.text_input("Corporate Email", placeholder="analyst@firm.com")
-                password = st.text_input("Password", type="password")
-                submitted = st.form_submit_button("Sign In →", use_container_width=True, type="primary")
+    col_left, col_right = st.columns([1, 1], gap="small")
 
-                if submitted:
-                    sb, sb_err = get_supabase()
-                    if sb:
-                        try:
-                            resp = sb.auth.sign_in_with_password({"email": email, "password": password})
-                            st.session_state.user_email = resp.user.email
-                            st.session_state.firm_id = email.split("@")[1].split(".")[0].upper()
-                            st.session_state.db_loaded = False
-                            st.rerun()
-                        except Exception as e:
-                            st.error("Access denied. Confirm active subscription at aire.rent")
+    # ── Left panel: branding ──
+    with col_left:
+        st.markdown(f'''
+        <div style="
+          background: linear-gradient(160deg, #0d1f3c 0%, #1b4fa8 55%, #1a9fd4 100%);
+          min-height: 100vh; display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          padding: 60px 40px; box-sizing: border-box;">
+
+          <!-- Logo on white card -->
+          <div style="
+            background: #ffffff; border-radius: 20px;
+            padding: 28px 32px; margin-bottom: 36px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+            display: inline-block;">
+            <img src="{AIRE_LOGO_URI}" style="height: 120px; display: block;" />
+          </div>
+
+          <!-- Tag line -->
+          <div style="font-size:14px; color:rgba(255,255,255,0.80); font-weight:600;
+                      letter-spacing:3px; text-transform:uppercase; text-align:center;
+                      margin-bottom:12px;">
+            Integrated Real Estate
+          </div>
+          <div style="font-size:12px; color:rgba(255,255,255,0.50); letter-spacing:2px;
+                      text-transform:uppercase; text-align:center; margin-bottom:40px;">
+            Institutional Underwriting Platform
+          </div>
+
+          <!-- Feature bullets -->
+          <div style="max-width:320px; width:100%;">
+            {"".join(f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;"><div style="width:32px;height:32px;background:rgba(255,255,255,0.12);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">{icon}</div><div style="font-size:13px;color:rgba(255,255,255,0.75);">{txt}</div></div>' for icon,txt in [("🎯","AI deal scoring vs 10,000+ comps"),("📊","Institutional-grade pro forma modeling"),("💰","LP/GP waterfall distribution calculator"),("📬","One-click IC memo delivery"),("🔒","Bank-level Supabase data security")])}
+          </div>
+
+          <!-- Patent / copyright -->
+          <div style="margin-top:48px; font-size:10px; color:rgba(255,255,255,0.30);
+                      text-align:center; letter-spacing:1px;">
+            Patent Pending &nbsp;|&nbsp; &copy; {datetime.now().year} AIRE Technologies
+          </div>
+        </div>
+        ''', unsafe_allow_html=True)
+
+    # ── Right panel: login form ──
+    with col_right:
+        st.markdown('''
+        <div style="min-height:100vh; display:flex; flex-direction:column;
+                    align-items:center; justify-content:center;
+                    padding:60px 40px; background:#f8fafc; box-sizing:border-box;">
+        ''', unsafe_allow_html=True)
+
+        st.markdown("<br>" * 6, unsafe_allow_html=True)
+        st.markdown("<div style='font-size:26px;font-weight:900;color:#0d1f3c;margin-bottom:4px;'>Welcome back</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:28px;'>Sign in to your AIRE account</div>", unsafe_allow_html=True)
+
+        with st.form("login_form"):
+            email    = st.text_input("Corporate Email", placeholder="analyst@firm.com")
+            password = st.text_input("Password", type="password")
+            st.markdown("<br>", unsafe_allow_html=True)
+            submitted = st.form_submit_button("Sign In →", use_container_width=True, type="primary")
+
+            if submitted:
+                sb, sb_err = get_supabase()
+                if sb:
+                    try:
+                        resp = sb.auth.sign_in_with_password({"email": email, "password": password})
+                        st.session_state.user_email = resp.user.email
+                        st.session_state.firm_id    = email.split("@")[1].split(".")[0].upper()
+                        st.session_state.db_loaded  = False
+                        st.rerun()
+                    except Exception:
+                        st.error("Access denied. Check your credentials or contact support at aire.rent")
+                else:
+                    if email and password:
+                        st.session_state.user_email = email
+                        st.session_state.firm_id    = email.split("@")[1].split(".")[0].upper() if "@" in email else "DEMO"
+                        st.session_state.db_loaded  = False
+                        st.rerun()
                     else:
-                        if email and password:
-                            st.session_state.user_email = email
-                            st.session_state.firm_id = email.split("@")[1].split(".")[0].upper() if "@" in email else "DEMO"
-                            st.session_state.db_loaded = False
-                            st.rerun()
-                        else:
-                            st.error("Please enter email and password.")
+                        st.error("Please enter your email and password.")
 
-        st.markdown("<div style='text-align:center;font-size:11px;color:#94a3b8;margin-top:12px;'>aire.rent &nbsp;|&nbsp; Patent Pending &nbsp;|&nbsp; &copy; 2025 AIRE Technologies</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:11px;color:#94a3b8;margin-top:20px;text-align:center;'>aire.rent &nbsp;&bull;&nbsp; Patent Pending &nbsp;&bull;&nbsp; &copy; 2025 AIRE Technologies</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # SECTION 5 │ CHARTS
@@ -4346,13 +4395,15 @@ Keep it concise and action-oriented. No fluff."""
 def render_sidebar():
     with st.sidebar:
         st.markdown(f'''
-        <div style="padding:16px 8px 24px 8px;border-bottom:1px solid rgba(255,255,255,0.07);margin-bottom:8px;">
-          <img src="{AIRE_LOGO_URI}"
-               style="height:56px;display:block;margin:0 auto 10px;border-radius:8px;" />
-          <div style="text-align:center;font-size:9px;color:#4d9fd4;font-weight:700;
-                      letter-spacing:2px;text-transform:uppercase;">Integrated Real Estate</div>
-          <div style="text-align:center;font-size:8px;color:rgba(255,255,255,0.25);
-                      letter-spacing:1px;margin-top:3px;">Patent Pending</div>
+        <div style="padding:20px 12px 20px;border-bottom:1px solid rgba(255,255,255,0.07);
+                    margin-bottom:8px;text-align:center;">
+          <div style="background:#ffffff;border-radius:12px;display:inline-block;
+                      padding:10px 16px;margin-bottom:10px;
+                      box-shadow:0 3px 14px rgba(0,0,0,0.30);">
+            <img src="{AIRE_LOGO_URI}" style="height:52px;display:block;" />
+          </div>
+          <div style="font-size:9px;color:#4d9fd4;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Integrated Real Estate</div>
+          <div style="font-size:8px;color:rgba(255,255,255,0.28);letter-spacing:1px;margin-top:3px;">Patent Pending</div>
         </div>
         ''', unsafe_allow_html=True)
         
