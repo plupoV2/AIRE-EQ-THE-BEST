@@ -1301,17 +1301,19 @@ def render_login():
 
     # ── LEFT: full branded panel ──
     with col_left:
+        bullet_items = [
+            "AI deal scoring vs 10,000+ comps",
+            "Institutional-grade pro forma modeling",
+            "LP/GP waterfall distribution calculator",
+            "One-click IC memo delivery",
+            "Bank-level data security",
+        ]
         bullets_html = "".join([
             f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">' +
-            f'<div style="width:34px;height:34px;background:rgba(255,255,255,0.13);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">{icon}</div>' +
+            f'<div style="width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,0.20);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+            f'<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
             f'<div style="font-size:13px;color:rgba(255,255,255,0.78);">{txt}</div></div>'
-            for icon, txt in [
-                ("🎯", "AI deal scoring vs 10,000+ comps"),
-                ("📊", "Institutional-grade pro forma modeling"),
-                ("💰", "LP/GP waterfall distribution calculator"),
-                ("📬", "One-click IC memo delivery"),
-                ("🔒", "Bank-level Supabase data security"),
-            ]
+            for txt in bullet_items
         ])
         st.markdown(f"""
         <div class="login-hero">
@@ -2810,7 +2812,7 @@ OM TEXT (first 6000 chars):
 
 
 def view_om_import():
-    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>📎 OM Import — AI Deal Extractor</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>OM Import — AI Deal Extractor</div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:24px;'>Upload a broker Offering Memorandum PDF and AI will extract every key metric automatically.</div>", unsafe_allow_html=True)
 
     col_up, col_out = st.columns([1, 1.5])
@@ -2932,7 +2934,7 @@ def view_om_import():
 # ──────────────────────────────────────────────────────────────────────────────
 
 def view_lp_portal():
-    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>👥 LP Investor Portal</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>LP Investor Portal</div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:24px;'>Investor-facing view of your portfolio. Share this summary with your LPs — clean, professional, no internal data exposed.</div>", unsafe_allow_html=True)
 
     props = st.session_state.properties
@@ -3081,7 +3083,7 @@ CRM_STAGE_COLORS = {
 }
 
 def view_crm():
-    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>🗂️ Deal Pipeline CRM</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>Deal Pipeline CRM</div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:20px;'>Track every deal from first look to close. Log notes, contacts, and stage history.</div>", unsafe_allow_html=True)
 
     props = st.session_state.properties
@@ -3236,7 +3238,7 @@ def view_crm():
 # ──────────────────────────────────────────────────────────────────────────────
 
 def view_market_data():
-    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>📡 Live Market Data & Deal Benchmarking</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>Live Market Data & Deal Benchmarking</div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:24px;'>Real-time macro indicators from FRED + how your active deal stacks up against current market benchmarks.</div>", unsafe_allow_html=True)
 
     # ── Macro strip ──
@@ -3368,7 +3370,7 @@ def view_market_data():
 # ──────────────────────────────────────────────────────────────────────────────
 
 def view_ai_scorer():
-    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>🎯 AI Deal Scorer — vs 10,000 Comps</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>AI Deal Scorer — vs 10,000 Comps</div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:24px;'>AI benchmarks your deal against thousands of closed CRE transactions and tells you exactly where it ranks.</div>", unsafe_allow_html=True)
 
     d = st.session_state.deal_data
@@ -3530,7 +3532,7 @@ def view_ai_scorer():
 # ──────────────────────────────────────────────────────────────────────────────
 
 def view_memo_delivery():
-    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>📬 IC Memo Delivery</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>IC Memo Delivery</div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:24px;'>Generate and email a fully branded IC memo directly to your investment committee — no downloading, no attaching.</div>", unsafe_allow_html=True)
 
     d = st.session_state.deal_data
@@ -3658,7 +3660,7 @@ Write 2 concise professional paragraphs. Use specific metrics. No fluff."""
 # ──────────────────────────────────────────────────────────────────────────────
 
 def view_stress_test():
-    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>🔥 Portfolio Stress Testing</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>Portfolio Stress Testing</div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:20px;'>Model what happens to every deal simultaneously under rate shocks, rent drops, and recession scenarios.</div>", unsafe_allow_html=True)
 
     props = st.session_state.properties
@@ -3759,7 +3761,7 @@ def view_stress_test():
 # ──────────────────────────────────────────────────────────────────────────────
 
 def view_version_proforma():
-    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>📋 Version-Controlled Pro Formas</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>Version-Controlled Pro Formas</div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:20px;'>Every time you update assumptions, save a snapshot. See exactly how IRR changed from v1 to now.</div>", unsafe_allow_html=True)
 
     d = st.session_state.deal_data
@@ -3872,7 +3874,7 @@ def view_version_proforma():
 # ──────────────────────────────────────────────────────────────────────────────
 
 def view_team():
-    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>👥 Team Management</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>Team Management</div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:20px;'>Add analysts and partners to your firm. Control who can view, edit, or approve deals.</div>", unsafe_allow_html=True)
 
     email = st.session_state.get("user_email","")
@@ -3993,7 +3995,7 @@ def view_team():
 # ──────────────────────────────────────────────────────────────────────────────
 
 def view_whitelabel():
-    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>🎨 White-Label Customization</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>White-Label Customization</div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:24px;'>Replace AIRE branding with your firm identity across all reports, memos, and the LP portal.</div>", unsafe_allow_html=True)
 
     wl = st.session_state.get("whitelabel", {})
@@ -4145,7 +4147,7 @@ def view_whitelabel():
 # ──────────────────────────────────────────────────────────────────────────────
 
 def view_lender_db():
-    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>🏦 Lender Contact Database</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>Lender Contact Database</div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:20px;'>Store preferred lenders with their rate sheets and LTV limits. One-click match to find the best lender for your active deal.</div>", unsafe_allow_html=True)
 
     if "lenders" not in st.session_state:
@@ -4278,7 +4280,7 @@ def view_lender_db():
 # ──────────────────────────────────────────────────────────────────────────────
 
 def view_broker_emails():
-    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>✉️ GPT Broker Email Drafts</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:22px;font-weight:800;color:#0f172a;margin-bottom:6px;'>GPT Broker Email Drafts</div>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:20px;'>AI drafts professional broker emails using your exact deal metrics — LOIs, counteroffers, due diligence requests, and more.</div>", unsafe_allow_html=True)
 
     d = st.session_state.deal_data
@@ -4438,34 +4440,34 @@ def render_sidebar():
         ''', unsafe_allow_html=True)
         
         st.markdown("<div style='font-size:10px; color:#4d9fd4; font-weight:700; letter-spacing:1px; margin-bottom:8px;'>DEAL ANALYSIS</div>", unsafe_allow_html=True)
-        if st.button("📊  Deal Dashboard"):     st.session_state.current_view = "Dashboard";    st.rerun()
-        if st.button("🧠  AI Data Room"):       st.session_state.current_view = "DataRoom";     st.rerun()
-        if st.button("🤖  AI Tracker"):         st.session_state.current_view = "AITracker";    st.rerun()
-        if st.button("🎯  AI Deal Scorer"):     st.session_state.current_view = "AIScorer";     st.rerun()
-        if st.button("📡  Market Data"):        st.session_state.current_view = "MarketData";   st.rerun()
-        if st.button("📄  IC Memo Generator"):  st.session_state.current_view = "ICMemo";       st.rerun()
-        if st.button("📬  Memo Delivery"):      st.session_state.current_view = "MemoDelivery"; st.rerun()
+        if st.button("Deal Dashboard"):     st.session_state.current_view = "Dashboard";    st.rerun()
+        if st.button("AI Data Room"):       st.session_state.current_view = "DataRoom";     st.rerun()
+        if st.button("AI Tracker"):         st.session_state.current_view = "AITracker";    st.rerun()
+        if st.button("AI Deal Scorer"):     st.session_state.current_view = "AIScorer";     st.rerun()
+        if st.button("Market Data"):        st.session_state.current_view = "MarketData";   st.rerun()
+        if st.button("IC Memo Generator"):  st.session_state.current_view = "ICMemo";       st.rerun()
+        if st.button("Memo Delivery"):      st.session_state.current_view = "MemoDelivery"; st.rerun()
 
         st.markdown("<div style='font-size:10px; color:#4d9fd4; font-weight:700; letter-spacing:1px; margin:20px 0 8px;'>UNDERWRITING TOOLS</div>", unsafe_allow_html=True)
-        if st.button("🏦  Debt Structuring"):   st.session_state.current_view = "DebtModel";    st.rerun()
-        if st.button("💰  Waterfall Calc"):     st.session_state.current_view = "Waterfall";    st.rerun()
-        if st.button("⚖️  Deal Comparison"):    st.session_state.current_view = "Compare";      st.rerun()
-        if st.button("🔔  Portfolio Alerts"):   st.session_state.current_view = "Alerts";       st.rerun()
-        if st.button("🔥  Stress Testing"):     st.session_state.current_view = "StressTest";   st.rerun()
-        if st.button("📋  Version Pro Formas"): st.session_state.current_view = "VersionPF";    st.rerun()
+        if st.button("Debt Structuring"):   st.session_state.current_view = "DebtModel";    st.rerun()
+        if st.button("Waterfall Calc"):     st.session_state.current_view = "Waterfall";    st.rerun()
+        if st.button("Deal Comparison"):    st.session_state.current_view = "Compare";      st.rerun()
+        if st.button("Portfolio Alerts"):   st.session_state.current_view = "Alerts";       st.rerun()
+        if st.button("Stress Testing"):     st.session_state.current_view = "StressTest";   st.rerun()
+        if st.button("Version Pro Formas"): st.session_state.current_view = "VersionPF";    st.rerun()
 
         st.markdown("<div style='font-size:10px; color:#4d9fd4; font-weight:700; letter-spacing:1px; margin:20px 0 8px;'>PORTFOLIO & INVESTORS</div>", unsafe_allow_html=True)
-        if st.button("🏢  Master Pipeline"):    st.session_state.current_view = "Pipeline";     st.rerun()
-        if st.button("🗂️  Deal CRM"):           st.session_state.current_view = "CRM";          st.rerun()
-        if st.button("👥  LP Portal"):          st.session_state.current_view = "LPPortal";     st.rerun()
-        if st.button("📎  OM Import"):          st.session_state.current_view = "OMImport";     st.rerun()
-        if st.button("✉️  Broker Emails"):      st.session_state.current_view = "BrokerEmails"; st.rerun()
+        if st.button("Master Pipeline"):    st.session_state.current_view = "Pipeline";     st.rerun()
+        if st.button("Deal CRM"):           st.session_state.current_view = "CRM";          st.rerun()
+        if st.button("LP Portal"):          st.session_state.current_view = "LPPortal";     st.rerun()
+        if st.button("OM Import"):          st.session_state.current_view = "OMImport";     st.rerun()
+        if st.button("Broker Emails"):      st.session_state.current_view = "BrokerEmails"; st.rerun()
 
         st.markdown("<div style='font-size:10px; color:#4d9fd4; font-weight:700; letter-spacing:1px; margin:20px 0 8px;'>FIRM SETTINGS</div>", unsafe_allow_html=True)
-        if st.button("👥  Team"):               st.session_state.current_view = "Team";         st.rerun()
-        if st.button("🎨  White-Label"):        st.session_state.current_view = "WhiteLabel";   st.rerun()
-        if st.button("🏦  Lender Database"):    st.session_state.current_view = "LenderDB";     st.rerun()
-        if st.button("⚙️  Settings"):           st.session_state.current_view = "Settings";     st.rerun()
+        if st.button("Team"):               st.session_state.current_view = "Team";         st.rerun()
+        if st.button("White-Label"):        st.session_state.current_view = "WhiteLabel";   st.rerun()
+        if st.button("Lender Database"):    st.session_state.current_view = "LenderDB";     st.rerun()
+        if st.button("Settings"):           st.session_state.current_view = "Settings";     st.rerun()
         
         # Active deal pill
         d = st.session_state.deal_data
