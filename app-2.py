@@ -1366,8 +1366,8 @@ def chart_capital_stack(d):
     ))
 
     fig.update_layout(
-        height=280,
-        margin=dict(l=60, r=60, t=20, b=20),
+        height=300,
+        margin=dict(l=90, r=90, t=30, b=30),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         annotations=[dict(
@@ -1378,6 +1378,7 @@ def chart_capital_stack(d):
             align='center'
         )]
     )
+    fig.update_traces(automargin=True)
     return fig
 
 def chart_noi_trend(noi_list, years):
@@ -2030,71 +2031,6 @@ def view_settings():
         else:
             st.session_state.settings = s  # still apply locally
             st.warning(f"Settings applied this session but DB save failed: {err}")
-
-    # ── Email Provider Setup Wizard ──
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("<div style='font-size:18px;font-weight:800;color:#0f172a;margin-bottom:6px;'>📧 Email Provider Setup</div>", unsafe_allow_html=True)
-    st.markdown("<div style='font-size:13px;color:#64748b;margin-bottom:20px;'>Configure how AIRE sends IC memos, team invites, and broker emails. Pick one provider below.</div>", unsafe_allow_html=True)
-
-    provider = detect_email_provider()
-    prov_labels = {"sendgrid":"SendGrid","mailgun":"Mailgun","resend":"Resend","smtp":"SMTP / Gmail"}
-    if provider:
-        st.success(f"✅ **{prov_labels.get(provider, provider)}** is connected and ready to send emails.", icon="📬")
-    else:
-        st.warning("No email provider configured yet. Follow one of the guides below.", icon="📧")
-
-    email_tab1, email_tab2, email_tab3, email_tab4 = st.tabs(["✅ Resend (Recommended)", "SendGrid", "Mailgun", "Gmail / SMTP"])
-
-    with email_tab1:
-        with st.container(border=True):
-            st.markdown("<div style='font-size:13px;font-weight:700;color:#166534;margin-bottom:4px;'>Resend — Easiest Setup</div>", unsafe_allow_html=True)
-            st.markdown("<div style='font-size:12px;color:#64748b;margin-bottom:14px;'>Free tier: 3,000 emails/month. No credit card. 2-minute setup.</div>", unsafe_allow_html=True)
-            st.markdown("1. Go to **resend.com** → Sign up free → API Keys → Create Key")
-            st.markdown("2. Add a verified domain or use their free `@resend.dev` address to start")
-            st.markdown("3. Add these to your **Railway Variables** or **Streamlit Secrets**:")
-            st.code("RESEND_API_KEY = re_xxxxxxxxxxxx\nRESEND_FROM   = you@yourdomain.com", language="bash")
-
-
-    with email_tab2:
-        with st.container(border=True):
-            st.markdown("<div style='font-size:13px;font-weight:700;color:#1d4ed8;margin-bottom:4px;'>SendGrid — Most Popular</div>", unsafe_allow_html=True)
-            st.markdown("<div style='font-size:12px;color:#64748b;margin-bottom:14px;'>Free tier: 100 emails/day. Requires sender verification.</div>", unsafe_allow_html=True)
-            st.markdown("1. Go to **sendgrid.com** → Sign up → Settings → API Keys → Create API Key")
-            st.markdown("2. Settings → Sender Authentication → Verify a Single Sender → confirm your email")
-            st.markdown("3. Add to secrets:")
-            st.code("SENDGRID_API_KEY    = SG.xxxxxxxxxxxx\nSENDGRID_FROM_EMAIL = you@youremail.com", language="bash")
-
-
-    with email_tab3:
-        with st.container(border=True):
-            st.markdown("<div style='font-size:13px;font-weight:700;color:#92400e;margin-bottom:4px;'>Mailgun — Best for High Volume</div>", unsafe_allow_html=True)
-            st.markdown("<div style='font-size:12px;color:#64748b;margin-bottom:14px;'>Free tier: 5,000 emails/month for 3 months. Requires domain.</div>", unsafe_allow_html=True)
-            st.markdown("1. Go to **mailgun.com** → Sign up → Sending → Domains → Add Domain")
-            st.markdown("2. Get your API key from the API Keys section")
-            st.markdown("3. Add to secrets:")
-            st.code("MAILGUN_API_KEY = key-xxxxxxxxxxxx\nMAILGUN_DOMAIN  = mg.yourdomain.com\nMAILGUN_FROM    = noreply@mg.yourdomain.com", language="bash")
-
-
-
-    with email_tab4:
-        with st.container(border=True):
-            st.markdown("<div style='font-size:13px;font-weight:700;color:#334155;margin-bottom:4px;'>Gmail / SMTP — Use Any Email</div>", unsafe_allow_html=True)
-            st.markdown("<div style='font-size:12px;color:#64748b;margin-bottom:14px;'>Works with Gmail, Outlook, or any SMTP server. Free with your existing account.</div>", unsafe_allow_html=True)
-            st.markdown("**Gmail setup:**")
-            st.markdown("1. myaccount.google.com → Security → 2-Step Verification → turn ON")
-            st.markdown("2. Security → App Passwords → Generate → copy the 16-character password")
-            st.markdown("3. Add to secrets:")
-            st.code("SMTP_HOST = smtp.gmail.com\nSMTP_PORT = 587\nSMTP_USER = you@gmail.com\nSMTP_PASS = xxxx xxxx xxxx xxxx", language="bash")
-
-
-
-            st.markdown("**Outlook / Office 365:**")
-            st.code("SMTP_HOST = smtp.office365.com\nSMTP_PORT = 587\nSMTP_USER = you@yourfirm.com\nSMTP_PASS = yourpassword", language="bash")
-
-
-
-            st.caption("After adding secrets, redeploy your Railway app for changes to take effect.")
-
 
 
 # ──────────────────────────────────────────────────────────────────────────────
