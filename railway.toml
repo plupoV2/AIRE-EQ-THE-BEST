@@ -1,7 +1,7 @@
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
- 
+
 [deploy]
 healthcheckPath = "/_stcore/health"
 healthcheckTimeout = 300
