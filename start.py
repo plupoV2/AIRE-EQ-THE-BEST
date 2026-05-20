@@ -1,13 +1,13 @@
 import os
 import pathlib
 
-# Write secrets.toml from Railway environment variables
+# Write secrets from Railway env vars into .streamlit/secrets.toml
 secrets_dir = pathlib.Path("/app/.streamlit")
 secrets_dir.mkdir(exist_ok=True)
 
 KEYS = [
     "SUPABASE_URL",
-    "SUPABASE_KEY", 
+    "SUPABASE_KEY",
     "OPENAI_API_KEY",
     "SENDGRID_API_KEY",
     "SENDGRID_FROM_EMAIL",
@@ -20,11 +20,9 @@ for key in KEYS:
     if val:
         lines.append(f'{key} = "{val}"')
 
-secrets_path = secrets_dir / "secrets.toml"
-secrets_path.write_text("\n".join(lines))
-print(f"✅ Wrote {len(lines)} secrets to secrets.toml")
+(secrets_dir / "secrets.toml").write_text("\n".join(lines))
+print(f"✅ Wrote {len(lines)} secrets")
 
-# Railway injects $PORT — default to 8501 if not set
 port = os.environ.get("PORT", "8501")
 print(f"✅ Starting on port {port}")
 
