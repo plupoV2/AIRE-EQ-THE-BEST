@@ -2,17 +2,33 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install ALL dependencies upfront so app starts instantly
+# Only install curl — skip build-essential entirely
+# Most Python packages have pre-built wheels so we don't need gcc
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Copy and install Python deps
 COPY requirements.txt .
-RUN pip install --no-cache-dir streamlit plotly pydeck requests openai \
-    supabase openpyxl xlrd pypdf numpy pandas
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir \
+    streamlit \
+    plotly \
+    pydeck \
+    requests \
+    openai \
+    supabase \
+    openpyxl \
+    xlrd \
+    pypdf \
+    numpy \
+    pandas
 
-# Run requirements.txt too in case there are extras
-RUN pip install --no-cache-dir -r requirements.txt || true
-
+# Copy app files
 COPY . .
 
-# Create streamlit config to disable the browser open and set port
+# Create streamlit config
 RUN mkdir -p /app/.streamlit && cat > /app/.streamlit/config.toml << 'TOML'
 [server]
 headless = true
