@@ -2,12 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+
 # Only install curl — skip build-essential entirely
 # Most Python packages have pre-built wheels so we don't need gcc
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y \
+    build-essential \
     curl \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy and install Python deps
 COPY requirements.txt .
