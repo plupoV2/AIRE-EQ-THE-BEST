@@ -283,30 +283,28 @@ def inject_css():
       .status-closed {{ background:#dcfce7; color:#166534; }}
       .status-watch  {{ background:#fef9c3; color:#92400e; }}
 
-      /* ── Sidebar ── */
+      /* ── Sidebar — slim, dark navy, accent blue ── */
       [data-testid="stSidebar"] {{
-        background: linear-gradient(180deg,#07111f 0%,#0d1f3c 100%) !important;
-        border-right: 1px solid #1a2d4a;
+        background: linear-gradient(180deg,#050d1a 0%,#07111f 40%,#0a1828 100%) !important;
+        border-right: 1px solid rgba(26,111,224,0.12) !important;
       }}
-      [data-testid="stSidebar"] * {{ color: #7a9bbe !important; }}
+      [data-testid="stSidebar"] * {{ color: #6b8fae !important; }}
       [data-testid="stSidebar"] .stButton > button {{
         width: 100%; text-align: left; background: transparent !important;
         border: none !important; outline: none !important; box-shadow: none !important;
-        color: #7a9bbe !important; padding: 9px 14px 9px 16px; border-radius: 7px;
-        font-size: 13px; font-weight: 500; transition: all 0.12s;
-        border-left: 3px solid transparent !important;
+        color: #6b8fae !important; padding: 7px 12px; border-radius: 6px;
+        font-size: 12.5px; font-weight: 500; transition: all 0.12s;
       }}
       [data-testid="stSidebar"] .stButton > button:hover {{
-        background: rgba(26,159,212,0.08) !important;
-        color: #d4e9f7 !important;
-        border-left-color: rgba(26,159,212,0.4) !important;
+        background: rgba(26,111,224,0.08) !important;
+        color: #c8dff0 !important;
       }}
       [data-testid="stSidebar"] button {{ border: none !important; box-shadow: none !important; outline: none !important; }}
-      [data-testid="stSidebar"] .stButton {{ margin-bottom: 1px !important; }}
+      [data-testid="stSidebar"] .stButton {{ margin-bottom: 0px !important; }}
       [data-testid="collapsedControl"] {{ display: none !important; }}
       button[data-testid="baseButton-header"] {{ display: none !important; }}
       section[data-testid="stSidebar"] {{
-        min-width: 256px !important; width: 256px !important;
+        min-width: 210px !important; width: 210px !important;
         transform: translateX(0) !important; visibility: visible !important;
       }}
 
@@ -1491,44 +1489,38 @@ def chart_sensitivity(base_irr, base_cap):
     return fig
 
 def chart_capital_stack(d):
+    """Renders a clean stacked horizontal bar — no squishing, always readable."""
     labels = ['Senior Debt', 'LP Equity', 'GP Equity']
     values = [d['debt_amount'], d['lp_equity'], d['gp_equity']]
-    colors = ['#0f172a', '#2563eb', '#60a5fa']
-    total  = sum(values)
+    colors = ['#07111f', '#1a6fe0', '#2281f7']
+    total  = sum(values) if sum(values) > 0 else 1
 
-    # Build percentage labels shown outside the ring
-    pct_labels = [f"{v/total*100:.1f}%" for v in values]
-    dollar_labels = [f"${v/1e6:.1f}M" for v in values]
-    text_labels = [f"<b>{l}</b><br>{p}<br>{dl}" for l, p, dl in zip(labels, pct_labels, dollar_labels)]
-
-    fig = go.Figure(go.Pie(
-        labels=labels,
-        values=values,
-        hole=0.60,
-        marker_colors=colors,
-        text=text_labels,
-        textinfo='text',
-        textposition='outside',
-        outsidetextfont=dict(size=11, family='Inter', color='#334155'),
-        hovertemplate='%{label}<br>$%{value:,.0f}<br>%{percent}<extra></extra>',
-        showlegend=False,
-        pull=[0, 0, 0],
-    ))
+    fig = go.Figure()
+    for i, (label, value, color) in enumerate(zip(labels, values, colors)):
+        pct = value / total * 100
+        fig.add_bar(
+            name=label,
+            x=[value / 1e6],
+            y=["Capital Stack"],
+            orientation='h',
+            marker_color=color,
+            text=f"<b>{label}</b><br>${value/1e6:.1f}M  ({pct:.1f}%)",
+            textposition='inside',
+            insidetextanchor='middle',
+            textfont=dict(color='#fff', size=11, family='Inter'),
+            hovertemplate=f"{label}: ${{x:.2f}}M ({pct:.1f}%)<extra></extra>",
+        )
 
     fig.update_layout(
-        height=300,
-        margin=dict(l=90, r=90, t=30, b=30),
+        barmode='stack',
+        height=110,
+        margin=dict(l=0, r=0, t=0, b=0),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        annotations=[dict(
-            text=f"<b>${total/1e6:.1f}M</b><br><span style='font-size:10px'>Total</span>",
-            x=0.5, y=0.5,
-            font=dict(size=16, family='JetBrains Mono', color='#0f172a'),
-            showarrow=False,
-            align='center'
-        )]
+        showlegend=False,
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
     )
-    fig.update_traces(automargin=True)
     return fig
 
 def chart_noi_trend(noi_list, years):
@@ -1695,23 +1687,26 @@ def view_dashboard():
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col_cs:
-        st.markdown('<div class="glass-panel"><div class="panel-title">Capital Stack</div>', unsafe_allow_html=True)
-        st.plotly_chart(chart_capital_stack(d), use_container_width=True, config={'displayModeBar': False})
-        ltv = d['debt_amount'] / d['purchase_price']
-        dscr = d['noi_year1'] / (d['debt_amount'] * 0.065)
-        st.markdown(f"""
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
-          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px; text-align:center;">
-            <div style="font-size:10px; color:#64748b; font-weight:700;">LTV</div>
-            <div style="font-size:18px; font-weight:800; font-family:'JetBrains Mono'; color:{'#dc2626' if ltv>0.75 else '#0f172a'};">{ltv:.0%}</div>
-          </div>
-          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px; text-align:center;">
-            <div style="font-size:10px; color:#64748b; font-weight:700;">DSCR</div>
-            <div style="font-size:18px; font-weight:800; font-family:'JetBrains Mono'; color:{'#16a34a' if dscr>1.25 else '#dc2626'};">{dscr:.2f}x</div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        ltv  = d['debt_amount'] / d['purchase_price'] if d['purchase_price'] else 0
+        dscr = d['noi_year1'] / (d['debt_amount'] * 0.065) if d['debt_amount'] else 0
+        total_cap = d['debt_amount'] + d['lp_equity'] + d['gp_equity']
+        cap_items = [('Senior Debt',d['debt_amount'],'#07111f'),('LP Equity',d['lp_equity'],'#1a6fe0'),('GP Equity',d['gp_equity'],'#60a5fa')]
+        ltv_c  = '#dc2626' if ltv  > 0.75 else '#07111f'
+        dscr_c = '#16a34a' if dscr >= 1.25 else '#dc2626'
+        cap_html = ''
+        if total_cap > 0:
+            for lbl, val, clr in cap_items:
+                pct = val/total_cap*100
+                cap_html += f"<div style='margin-bottom:11px;'><div style='display:flex;justify-content:space-between;margin-bottom:3px;'><span style='font-size:12px;font-weight:600;color:#334155;'>{lbl}</span><span style='font-size:11px;font-weight:700;color:{clr};'>${val/1e6:.1f}M ({pct:.0f}%)</span></div><div style='background:#f1f5f9;border-radius:4px;height:9px;overflow:hidden;'><div style='width:{pct:.1f}%;height:100%;background:{clr};border-radius:4px;'></div></div></div>"
+        st.markdown(
+            '<div class="glass-panel"><div class="panel-title">Capital Stack</div>' + cap_html +
+            f'<div style="border-top:1px solid #f1f5f9;padding-top:10px;margin-top:4px;display:flex;justify-content:space-around;">' +
+            f'<div style="text-align:center;"><div style="font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;">Total</div><div style="font-size:15px;font-weight:900;color:#07111f;font-family:monospace;">${total_cap/1e6:.1f}M</div></div>' +
+            f'<div style="text-align:center;"><div style="font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;">LTV</div><div style="font-size:15px;font-weight:900;color:{ltv_c};font-family:monospace;">{ltv:.0%}</div></div>' +
+            f'<div style="text-align:center;"><div style="font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;">DSCR</div><div style="font-size:15px;font-weight:900;color:{dscr_c};font-family:monospace;">{dscr:.2f}x</div></div>' +
+            '</div></div>',
+            unsafe_allow_html=True
+        )
 
 # ──────────────────────────────────────────────────────────────────────────────
 def view_pipeline():
@@ -4516,106 +4511,177 @@ Keep it concise and action-oriented. No fluff."""
 # ──────────────────────────────────────────────────────────────────────────────
 # SECTION 7 │ SIDEBAR & ROUTER
 # ──────────────────────────────────────────────────────────────────────────────
+
+NAV_ITEMS = {
+    "DEAL ANALYSIS": [
+        ("Deal Dashboard",    "Dashboard",    "▪"),
+        ("AI Data Room",      "DataRoom",     "▪"),
+        ("AI Tracker",        "AITracker",    "▪"),
+        ("AI Deal Scorer",    "AIScorer",     "▪"),
+        ("Market Data",       "MarketData",   "▪"),
+        ("IC Memo",           "ICMemo",       "▪"),
+        ("Memo Delivery",     "MemoDelivery", "▪"),
+    ],
+    "UNDERWRITING": [
+        ("Debt Structuring",  "DebtModel",    "▪"),
+        ("Waterfall Calc",    "Waterfall",    "▪"),
+        ("Deal Comparison",   "Compare",      "▪"),
+        ("Portfolio Alerts",  "Alerts",       "▪"),
+        ("Stress Testing",    "StressTest",   "▪"),
+        ("Version Pro Forma", "VersionPF",    "▪"),
+    ],
+    "PORTFOLIO": [
+        ("Master Pipeline",   "Pipeline",     "▪"),
+        ("Firm Analytics",    "Analytics",    "▪"),
+        ("Deal CRM",          "CRM",          "▪"),
+        ("LP Portal",         "LPPortal",     "▪"),
+        ("OM Import",         "OMImport",     "▪"),
+        ("Broker Emails",     "BrokerEmails", "▪"),
+    ],
+    "FIRM": [
+        ("Team",              "Team",         "▪"),
+        ("White-Label",       "WhiteLabel",   "▪"),
+        ("Lender Database",   "LenderDB",     "▪"),
+        ("Settings",          "Settings",     "▪"),
+    ],
+}
+
 def nav_btn(label, view_key, current_view):
     is_active = current_view == view_key
-    if is_active:
-        st.markdown(
-            '<div style="background:rgba(26,159,212,0.14);border-radius:7px;border-left:3px solid #1a9fd4;margin-bottom:1px;">',
-            unsafe_allow_html=True
-        )
-    if st.button(("\u25b8 " if is_active else "  ") + label,
-                 key=f"nav_{view_key}", use_container_width=True):
+    btn_label = label
+    if st.button(btn_label, key=f"nav_{view_key}", use_container_width=True):
         st.session_state.current_view = view_key
         st.rerun()
-    if is_active:
-        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_sidebar():
     v = st.session_state.get("current_view", "Dashboard")
+
+    # ── Slim sidebar CSS override ──
+    st.markdown("""
+    <style>
+      /* Slimmer sidebar */
+      section[data-testid="stSidebar"] {
+        min-width: 210px !important; width: 210px !important;
+      }
+      /* Active nav item */
+      [data-testid="stSidebar"] .stButton > button {
+        font-size: 12.5px !important;
+        padding: 7px 12px !important;
+        text-align: left !important;
+        font-weight: 500 !important;
+        color: #8fb3d4 !important;
+        border-radius: 6px !important;
+        letter-spacing: 0.01em !important;
+      }
+      [data-testid="stSidebar"] .stButton > button:hover {
+        background: rgba(255,255,255,0.06) !important;
+        color: #e8f4fd !important;
+      }
+    </style>
+    """, unsafe_allow_html=True)
+
     with st.sidebar:
+        # ── Logo — use SVG for crisp rendering at any resolution ──
         st.markdown(f'''
-        <div style="padding:18px 14px 16px;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:10px;text-align:center;">
-          <div style="background:#fff;border-radius:10px;display:inline-block;padding:7px 14px;margin-bottom:8px;box-shadow:0 2px 10px rgba(0,0,0,0.22);">
-            <img src="{AIRE_LOGO_URI}" style="height:32px;display:block;" />
+        <div style="padding:16px 12px 14px;border-bottom:1px solid rgba(255,255,255,0.06);
+                    margin-bottom:8px;text-align:center;">
+          <div style="background:#fff;border-radius:10px;padding:8px 14px;
+                      display:inline-block;margin-bottom:8px;
+                      box-shadow:0 2px 10px rgba(0,0,0,0.22);">
+            <!-- Crisp SVG logo — matches AIRE brand exactly, no pixelation -->
+            <svg width="80" height="28" viewBox="0 0 120 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- A -->
+              <path d="M2 38 L14 8 L26 38" stroke="#07111f" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              <line x1="7" y1="26" x2="21" y2="26" stroke="#07111f" stroke-width="4" stroke-linecap="round"/>
+              <!-- i (sky blue) -->
+              <circle cx="38" cy="10" r="3.5" fill="#1a9fd4"/>
+              <line x1="38" y1="18" x2="38" y2="38" stroke="#1a9fd4" stroke-width="5.5" stroke-linecap="round"/>
+              <!-- R -->
+              <line x1="50" y1="8" x2="50" y2="38" stroke="#07111f" stroke-width="5.5" stroke-linecap="round"/>
+              <path d="M50 8 Q70 8 70 18 Q70 28 50 28" stroke="#07111f" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              <line x1="58" y1="28" x2="72" y2="38" stroke="#07111f" stroke-width="4.5" stroke-linecap="round"/>
+              <!-- E -->
+              <line x1="84" y1="8" x2="84" y2="38" stroke="#07111f" stroke-width="5.5" stroke-linecap="round"/>
+              <line x1="84" y1="8" x2="108" y2="8" stroke="#07111f" stroke-width="4.5" stroke-linecap="round"/>
+              <line x1="84" y1="23" x2="102" y2="23" stroke="#07111f" stroke-width="4.5" stroke-linecap="round"/>
+              <line x1="84" y1="38" x2="108" y2="38" stroke="#07111f" stroke-width="4.5" stroke-linecap="round"/>
+            </svg>
           </div>
-          <div style="font-size:8px;color:#4d9fd4;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;">Integrated Real Estate</div>
-          <div style="font-size:7px;color:rgba(255,255,255,0.22);letter-spacing:1px;margin-top:2px;">Patent Pending</div>
+          <div style="font-size:7.5px;color:#4d9fd4;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Integrated Real Estate</div>
+          <div style="font-size:6.5px;color:rgba(255,255,255,0.20);letter-spacing:1px;margin-top:1px;">Patent Pending</div>
         </div>
         ''', unsafe_allow_html=True)
 
+        # Guided mode indicator
         if st.session_state.get("onboarding_mode"):
             st.markdown(
-                '<div style="background:rgba(26,159,212,0.12);border:1px solid rgba(26,159,212,0.25);border-radius:6px;padding:6px 12px;margin-bottom:10px;text-align:center;"><span style="font-size:10px;color:#1a9fd4;font-weight:700;letter-spacing:0.5px;">GUIDED MODE ON</span></div>',
+                '<div style="background:rgba(26,159,212,0.12);border:1px solid rgba(26,159,212,0.25);'
+                'border-radius:5px;padding:5px 10px;margin-bottom:8px;text-align:center;">' +
+                '<span style="font-size:9px;color:#1a9fd4;font-weight:700;letter-spacing:0.5px;">GUIDED MODE</span></div>',
                 unsafe_allow_html=True
             )
 
-        def section(label):
+        # ── Navigation ──
+        for section, items in NAV_ITEMS.items():
             st.markdown(
-                f'<div style="font-size:9px;color:#3d6a8a;font-weight:700;letter-spacing:1.5px;margin:16px 0 6px 4px;text-transform:uppercase;">{label}</div>',
+                f'<div style="font-size:8.5px;color:#2d5070;font-weight:700;letter-spacing:2px;'
+                f'margin:14px 0 4px 4px;text-transform:uppercase;">{section}</div>',
                 unsafe_allow_html=True
             )
+            for label, view_key, _ in items:
+                is_active = v == view_key
+                if is_active:
+                    st.markdown(
+                        '<div style="background:rgba(26,111,224,0.14);border-radius:6px;'
+                        'border-left:2.5px solid #1a6fe0;margin-bottom:1px;">',
+                        unsafe_allow_html=True
+                    )
+                if st.button(
+                    ("› " if is_active else "  ") + label,
+                    key=f"nav_{view_key}",
+                    use_container_width=True
+                ):
+                    st.session_state.current_view = view_key
+                    st.rerun()
+                if is_active:
+                    st.markdown("</div>", unsafe_allow_html=True)
 
-        section("Deal Analysis")
-        nav_btn("Deal Dashboard",    "Dashboard",    v)
-        nav_btn("AI Data Room",      "DataRoom",     v)
-        nav_btn("AI Tracker",        "AITracker",    v)
-        nav_btn("AI Deal Scorer",    "AIScorer",     v)
-        nav_btn("Market Data",       "MarketData",   v)
-        nav_btn("IC Memo",           "ICMemo",       v)
-        nav_btn("Memo Delivery",     "MemoDelivery", v)
-
-        section("Underwriting Tools")
-        nav_btn("Debt Structuring",  "DebtModel",    v)
-        nav_btn("Waterfall Calc",    "Waterfall",    v)
-        nav_btn("Deal Comparison",   "Compare",      v)
-        nav_btn("Portfolio Alerts",  "Alerts",       v)
-        nav_btn("Stress Testing",    "StressTest",   v)
-        nav_btn("Version Pro Forma", "VersionPF",    v)
-
-        section("Portfolio & Investors")
-        nav_btn("Master Pipeline",   "Pipeline",     v)
-        nav_btn("Deal CRM",          "CRM",          v)
-        nav_btn("LP Portal",         "LPPortal",     v)
-        nav_btn("OM Import",         "OMImport",     v)
-        nav_btn("Broker Emails",     "BrokerEmails", v)
-
-        section("Firm")
-        nav_btn("Team",              "Team",         v)
-        nav_btn("White-Label",       "WhiteLabel",   v)
-        nav_btn("Lender Database",   "LenderDB",     v)
-        nav_btn("Settings",          "Settings",     v)
-
-        # Active deal pill
+        # ── Active deal pill ──
         d = st.session_state.deal_data
-        grade_color = {"A":"#16a34a","B":"#1d4ed8","C":"#d97706","D":"#dc2626"}
+        grade_color = {"A":"#16a34a","B":"#1a6fe0","C":"#d97706","D":"#dc2626"}
         if d:
-            gc = grade_color.get(d.get("grade","B"),"#1d4ed8")
+            gc = grade_color.get(d.get("grade","B"),"#1a6fe0")
             st.markdown(
-                f'<div style="margin-top:18px;background:rgba(26,159,212,0.08);border-radius:10px;padding:12px 14px;border:1px solid rgba(26,159,212,0.18);">' +
-                '<div style="font-size:9px;color:#3d6a8a;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Active Deal</div>' +
-                f'<div style="font-size:13px;color:#d4e9f7;font-weight:700;line-height:1.3;margin-bottom:4px;">{d["name"]}</div>' +
+                f'<div style="margin-top:14px;background:rgba(26,111,224,0.08);border-radius:8px;'
+                f'padding:10px 12px;border:1px solid rgba(26,111,224,0.16);">' +
+                '<div style="font-size:8px;color:#2d5070;font-weight:700;letter-spacing:1px;'
+                'text-transform:uppercase;margin-bottom:5px;">Active Deal</div>' +
+                f'<div style="font-size:12px;color:#d4e9f7;font-weight:700;line-height:1.3;margin-bottom:4px;">{d["name"][:20]}</div>' +
                 f'<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                f'<span style="font-size:12px;color:#1a9fd4;font-weight:700;font-family:monospace;">{d["irr"]:.1%} IRR</span>' +
-                f'<span style="background:{gc};color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:4px;">Grade {d["grade"]}</span>' +
+                f'<span style="font-size:11px;color:#1a9fd4;font-weight:700;font-family:monospace;">{d["irr"]:.1%} IRR</span>' +
+                f'<span style="background:{gc};color:#fff;font-size:10px;font-weight:800;padding:1px 7px;border-radius:3px;">Grade {d["grade"]}</span>' +
                 '</div></div>',
                 unsafe_allow_html=True
             )
         else:
             st.markdown(
-                '<div style="margin-top:18px;background:rgba(255,255,255,0.03);border-radius:10px;padding:12px 14px;border:1px dashed rgba(255,255,255,0.08);">' +
-                '<div style="font-size:9px;color:#3d6a8a;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Active Deal</div>' +
-                '<div style="font-size:12px;color:#2d4a6a;font-style:italic;">No deal loaded</div>' +
-                '<div style="font-size:10px;color:#1a3a5a;margin-top:4px;">Add a deal in Master Pipeline</div>' +
+                '<div style="margin-top:14px;background:rgba(255,255,255,0.02);border-radius:8px;'
+                'padding:10px 12px;border:1px dashed rgba(255,255,255,0.07);">' +
+                '<div style="font-size:8px;color:#2d4a6a;font-weight:700;letter-spacing:1px;'
+                'text-transform:uppercase;margin-bottom:3px;">Active Deal</div>' +
+                '<div style="font-size:11px;color:#1e3a5a;font-style:italic;">No deal loaded</div>' +
+                '<div style="font-size:10px;color:#162d42;margin-top:3px;">Add via Master Pipeline</div>' +
                 '</div>',
                 unsafe_allow_html=True
             )
 
-        st.markdown("<br><br>", unsafe_allow_html=True)
+        # ── User + sign out ──
+        st.markdown("<br>", unsafe_allow_html=True)
         st.markdown(
-            f'<div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:12px;">' +
-            f'<div style="font-size:11px;color:#2d4a6a;margin-bottom:2px;">{st.session_state.user_email}</div>' +
-            f'<div style="font-size:12px;font-weight:700;color:#1a9fd4;">{st.session_state.firm_id}</div>' +
+            f'<div style="border-top:1px solid rgba(255,255,255,0.05);padding-top:10px;">' +
+            f'<div style="font-size:10px;color:#1e3a5a;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{st.session_state.user_email}</div>' +
+            f'<div style="font-size:11px;font-weight:700;color:#1a9fd4;">{st.session_state.firm_id}</div>' +
             '</div>',
             unsafe_allow_html=True
         )
@@ -4663,6 +4729,7 @@ def main():
     elif v == "WhiteLabel":     view_whitelabel()
     elif v == "LenderDB":       view_lender_db()
     elif v == "BrokerEmails":   view_broker_emails()
+    elif v == "Analytics":       view_firm_analytics()
 
 if __name__ == "__main__":
     main()
