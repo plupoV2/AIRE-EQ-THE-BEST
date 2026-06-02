@@ -61,7 +61,72 @@ AIRE_LOGO_B64 = "/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAA
 AIRE_LOGO_URI = f"data:image/jpeg;base64,{AIRE_LOGO_B64}"
 
 # ── Onboarding guide steps (shown when onboarding mode is ON) ──
-ONBOARDING_STEPS = {'Dashboard': {'step': 'Step 1 of 8', 'title': 'Deal Dashboard — Your Command Center', 'text': "This is where every deal lives once it's loaded. You'll see real-time IRR, equity multiple, Monte Carlo simulation (3,000 scenarios), and an IRR sensitivity matrix. Load a deal from Master Pipeline first, then come back here to analyze it. Every number updates instantly when you change assumptions in Settings.", 'tip': 'Start by going to Master Pipeline → Add New Deal, then come back here.'}, 'Pipeline': {'step': 'Step 2 of 8', 'title': 'Master Pipeline — Enter Your First Deal', 'text': "This is where you add deals. Click 'Add New Deal' at the bottom, enter the property name, address, type, units, purchase price, and NOI. The AI will automatically calculate IRR, equity multiple, and assign a deal grade (A–D). Every deal you add is saved permanently to the database under your firm.", 'tip': 'Fastest way to add a deal: have the OM (offering memorandum) ready. Use OM Import in the sidebar to extract all numbers automatically with AI.'}, 'OMImport': {'step': 'Step 3 of 8', 'title': 'OM Import — AI Deal Extraction', 'text': "Upload a broker PDF (from CBRE, JLL, Marcus & Millichap, Eastdil, etc.) and AI reads the entire document and pulls out purchase price, NOI, cap rate, occupancy, unit count, and investment highlights automatically. Review the numbers, adjust anything the AI missed, then click 'Add to Pipeline' to save it. This replaces 2 hours of manual Excel entry.", 'tip': 'Patent Pending: Our AI extraction engine is trained on thousands of CRE offering memorandums. Works on most standard broker formats.'}, 'DataRoom': {'step': 'Step 4 of 8', 'title': 'AI Data Room — Upload Rent Roll & T12', 'text': 'Upload the Rent Roll (Excel or CSV) and Trailing 12 Financials. AI parses both documents, extracts NOI, occupancy, average rent, and expense ratio, then updates your deal automatically. The Deal Copilot chatbot on the right is a GPT-4o underwriter — ask it to identify risks, benchmark cap rates, or explain any line item.', 'tip': 'Best practice: always upload a T12 before generating an IC Memo so the AI has real financial data, not estimates.'}, 'DebtModel': {'step': 'Step 5 of 8', 'title': 'Debt Structuring — Model Your Loan', 'text': 'Enter the loan parameters — LTV, rate, amortization period, IO years, loan fee, and prepayment. The model builds a full 10-year debt schedule showing principal, interest, balance paydown, and DSCR. DSCR below 1.25x is flagged red — most lenders require 1.25x minimum. Compare IO vs fully amortizing payments side by side.', 'tip': 'The interest rate pulls from the live 10-Year Treasury (FRED API) + your spread. Keep it updated in Settings.'}, 'Waterfall': {'step': 'Step 6 of 8', 'title': 'Waterfall Calculator — LP/GP Distribution', 'text': 'Model how profits are split between LPs and the GP across multiple promote hurdles. Set your preferred return (typically 8%), then define LP/GP splits at each IRR tier. The calculator outputs LP and GP equity multiples, approximate IRRs, and a full tier breakdown table. This is what your LPs will ask about on every deal.', 'tip': 'Standard CRE waterfall: 80/20 LP/GP up to 8% pref → 70/30 up to 12% IRR → 50/50 up to 18% → 30/70 above. Adjust in the promote hurdles.'}, 'ICMemo': {'step': 'Step 7 of 8', 'title': 'IC Memo Generator — One-Click Investment Committee', 'text': 'Generate a full Investment Committee memorandum with one click. The AI writes a professional 2-paragraph executive summary using your exact deal metrics. Configure the recommendation (Approve / Approve with Conditions / Decline), preview the branded memo, then send it directly to your IC via email using Memo Delivery.', 'tip': "Patent Pending: AIRE's IC memo format is modeled on institutional-grade investment committee templates used by top-tier private equity firms."}, 'Settings': {'step': 'Step 8 of 8', 'title': 'Settings — Calibrate Your Underwriting', 'text': "Set your firm's underwriting assumptions: target IRR, max LTV, minimum DSCR, hold period, vacancy rate, management fee, rent growth, expense growth, and exit cap spread. These settings flow through every pro forma, debt model, and AI analysis in the platform. Configure email delivery here too. Once set, these save permanently per firm.", 'tip': 'Typical institutional assumptions: 15% target IRR, 65-70% max LTV, 1.25x min DSCR, 5-year hold, 5% vacancy, 4% rent growth, 50bps exit cap spread.'}}
+ONBOARDING_STEPS = {
+    "Dashboard": {
+        "step": "Step 1 of 8", "emoji": "📊",
+        "title": "Deal Dashboard — Your Command Center",
+        "text": "Every metric for your active deal lives here. The five KPI cards at the top update in real time as you change assumptions. Below that you get a Monte Carlo simulation running 3,000 scenarios to show your probability distribution of outcomes, and a 5×5 IRR sensitivity matrix mapping exit cap rate against hold period. This is the screen you bring to IC meetings.",
+        "tip": "Load a deal first: go to Master Pipeline in the sidebar, add a deal, then click View on it to load it here.",
+        "action": "Pipeline",
+        "action_label": "Go to Master Pipeline →"
+    },
+    "Pipeline": {
+        "step": "Step 2 of 8", "emoji": "🏢",
+        "title": "Master Pipeline — Your Deal Database",
+        "text": "This is where every deal your firm is tracking lives. Add a deal by filling in the form at the bottom — property name, address, type, units, purchase price, and Year 1 NOI. AIRE automatically calculates the cap rate, levered IRR, equity multiple, and assigns a deal grade (A through D) based on your firm's target assumptions. Every deal saves permanently to your firm's database.",
+        "tip": "Fastest workflow: Use OM Import to upload a broker PDF and let AI fill in all the numbers automatically. Saves 2+ hours per deal.",
+        "action": "OMImport",
+        "action_label": "Try OM Import →"
+    },
+    "OMImport": {
+        "step": "Step 3 of 8", "emoji": "📎",
+        "title": "OM Import — AI Reads the Broker PDF for You",
+        "text": "Upload any Offering Memorandum PDF from CBRE, JLL, Marcus & Millichap, Eastdil, or most major brokerages. AIRE's AI reads the full document and extracts: property name, address, type, unit count, vintage year, asking price, NOI, cap rate, occupancy rate, average monthly rent, and investment highlights. Review the extracted numbers, adjust anything, then click Add to Pipeline.",
+        "tip": "Patent Pending technology: Our extraction engine is trained specifically on CRE offering memorandums. Works on text-based PDFs. For image-only scans, try copy-pasting key numbers manually.",
+        "action": "Pipeline",
+        "action_label": "Back to Pipeline →"
+    },
+    "DataRoom": {
+        "step": "Step 4 of 8", "emoji": "🧠",
+        "title": "AI Data Room — Upload Financials, Talk to Your Deal",
+        "text": "Upload the property's Rent Roll and T12 Trailing Financials (Excel or CSV). AIRE parses both automatically and extracts units, average rent, occupancy, gross potential rent, NOI, and expense ratio — then updates your deal record. On the right, the Deal Copilot is a GPT-4o underwriter trained on CRE. Ask it anything: 'What are the top 3 risks on this deal?' or 'How does this cap rate compare to the Dallas multifamily market?'",
+        "tip": "Always upload T12 financials before generating an IC memo. AI-generated memos are far more accurate with real trailing numbers than estimates.",
+        "action": "ICMemo",
+        "action_label": "Go to IC Memo Generator →"
+    },
+    "DebtModel": {
+        "step": "Step 5 of 8", "emoji": "🏦",
+        "title": "Debt Structuring — Model Every Loan Scenario",
+        "text": "Enter loan parameters — LTV, interest rate, amortization period, interest-only years, loan origination fee, and prepayment lockout. AIRE builds a full 10-year debt schedule showing beginning balance, annual payment, interest, principal paydown, ending balance, and prepayment penalty by year. DSCR is calculated for both IO and fully amortizing periods — cards turn green above 1.25x and red below.",
+        "tip": "The interest rate auto-populates from the live 10-Year Treasury + 200bps spread via FRED API. Adjust the spread in Settings to match your lender's current terms.",
+        "action": "Waterfall",
+        "action_label": "Go to Waterfall Calculator →"
+    },
+    "Waterfall": {
+        "step": "Step 6 of 8", "emoji": "💰",
+        "title": "Waterfall Calculator — Model LP/GP Returns",
+        "text": "Model how investment profits are distributed between LPs and the GP across a tiered promote structure. Set your preferred return (typically 8%), then configure the LP/GP split at each IRR hurdle. The calculator outputs total distributions to each party, equity multiples, approximate IRRs, and a full tier breakdown table showing exactly how much profit flows through each promote level.",
+        "tip": "Standard institutional waterfall: 80/20 LP/GP up to 8% pref → 70/30 up to 12% IRR → 50/50 up to 18% IRR → 30/70 above. Adjust these splits in the Promote Hurdles section.",
+        "action": "ICMemo",
+        "action_label": "Generate IC Memo →"
+    },
+    "ICMemo": {
+        "step": "Step 7 of 8", "emoji": "📄",
+        "title": "IC Memo Generator — Investment Committee in One Click",
+        "text": "Generate a full professional Investment Committee memorandum in seconds. Click Generate IC Memo and GPT-4o writes a 2-paragraph executive summary using your exact deal metrics — price, NOI, IRR, EM, cap rate, and deal grade. Set your recommendation (Approve, Approve with Conditions, or Decline), preview the branded memo, then use Memo Delivery to email it directly to your investment committee.",
+        "tip": "Patent Pending: AIRE's IC memo format mirrors the structure used by institutional private equity and family office investment committees. Load T12 data in the Data Room first for the most accurate AI summary.",
+        "action": "MemoDelivery",
+        "action_label": "Go to Memo Delivery →"
+    },
+    "Settings": {
+        "step": "Step 8 of 8", "emoji": "⚙️",
+        "title": "Settings — Calibrate Your Firm's Underwriting",
+        "text": "These assumptions flow through every pro forma, debt model, IRR calculation, and AI analysis in the platform. Set them once and they save permanently for your entire firm. Key inputs: Target IRR (what your fund needs to return), Max LTV (your lender/IC risk limit), Minimum DSCR (debt coverage requirement), Hold Period (default underwriting horizon), Vacancy Rate, Management Fee, Rent Growth, Expense Growth, and Exit Cap Rate Spread over entry.",
+        "tip": "Typical institutional assumptions: 15% target IRR, 65-70% LTV, 1.25x min DSCR, 5-year hold, 5-7% vacancy, 3-4% rent growth, 3% expense growth, 25-50bps exit cap spread over entry.",
+        "action": "Dashboard",
+        "action_label": "Return to Dashboard →"
+    },
+}
 
 st.set_page_config(
     page_title="AIRE | Integrated Real Estate Underwriting",
@@ -74,158 +139,208 @@ st.set_page_config(
 # SECTION 1 │ ENTERPRISE CSS
 # ──────────────────────────────────────────────────────────────────────────────
 def inject_css():
-    st.markdown("""
+    v = st.session_state.get("current_view","Dashboard")
+    st.markdown(f"""
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
 
-      html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-      .stApp { background: #f0f4f8; }
-      #MainMenu, footer, header { visibility: hidden; }
-
-      /* ── Page layout ── */
-      .block-container { padding-top: 2rem !important; padding-bottom: 2rem !important; }
+      /* ── Base ── */
+      html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; }}
+      .stApp {{ background: #f0f4f8; }}
+      #MainMenu, footer, header {{ visibility: hidden; }}
+      .block-container {{ padding-top: 1.5rem !important; padding-bottom: 2rem !important; max-width: 1200px; }}
 
       /* ── Inputs ── */
-      [data-testid="stTextInput"] input, [data-testid="stNumberInput"] input,
-      [data-testid="stTextArea"] textarea {
+      [data-testid="stTextInput"] input,
+      [data-testid="stNumberInput"] input,
+      [data-testid="stTextArea"] textarea {{
         border-radius: 8px !important; border: 1.5px solid #e2e8f0 !important;
         font-family: 'Inter', sans-serif !important; font-size: 13px !important;
-        transition: border-color 0.15s, box-shadow 0.15s !important;
-      }
-      [data-testid="stTextInput"] input:focus, [data-testid="stNumberInput"] input:focus,
-      [data-testid="stTextArea"] textarea:focus {
-        border-color: #1a9fd4 !important; box-shadow: 0 0 0 3px rgba(26,159,212,0.12) !important;
-      }
+        background: #fff !important; color: #0f172a !important;
+        transition: all 0.15s !important;
+      }}
+      [data-testid="stTextInput"] input:focus,
+      [data-testid="stNumberInput"] input:focus,
+      [data-testid="stTextArea"] textarea:focus {{
+        border-color: #1a9fd4 !important;
+        box-shadow: 0 0 0 3px rgba(26,159,212,0.12) !important;
+      }}
+      [data-testid="stSelectbox"] > div > div {{
+        border-radius: 8px !important; border: 1.5px solid #e2e8f0 !important;
+        font-size: 13px !important; background: #fff !important;
+      }}
 
-      /* ── Select boxes ── */
-      [data-testid="stSelectbox"] > div > div {
-        border-radius: 8px !important; border: 1.5px solid #e2e8f0 !important; font-size: 13px !important;
-      }
-
-      /* ── Primary buttons — AIRE gradient ── */
+      /* ── Buttons ── */
       .stButton > button[kind="primary"],
       .stButton > button[kind="primaryFormSubmit"],
-      [data-testid="stFormSubmitButton"] > button,
-      button[kind="primaryFormSubmit"] {
-        background: linear-gradient(135deg, #1b4fa8, #1a9fd4) !important;
-        border: none !important; border-radius: 8px !important; font-weight: 700 !important;
-        color: #fff !important; box-shadow: 0 2px 10px rgba(26,159,212,0.30) !important;
-        transition: all 0.15s !important;
-      }
+      [data-testid="stFormSubmitButton"] > button {{
+        background: linear-gradient(135deg,#1b4fa8,#1a9fd4) !important;
+        border: none !important; border-radius: 8px !important;
+        font-weight: 700 !important; color: #fff !important;
+        box-shadow: 0 2px 10px rgba(26,159,212,0.28) !important;
+        transition: all 0.15s !important; letter-spacing: 0.2px !important;
+      }}
       .stButton > button[kind="primary"]:hover,
-      [data-testid="stFormSubmitButton"] > button:hover {
-        background: linear-gradient(135deg, #0d1f3c, #1b4fa8) !important;
-        box-shadow: 0 4px 18px rgba(26,159,212,0.40) !important;
-        transform: translateY(-1px) !important; color: #fff !important;
-      }
-
-      /* ── Secondary buttons ── */
-      .stButton > button[kind="secondary"] {
+      [data-testid="stFormSubmitButton"] > button:hover {{
+        background: linear-gradient(135deg,#0d1f3c,#1b4fa8) !important;
+        box-shadow: 0 4px 18px rgba(26,159,212,0.38) !important;
+        transform: translateY(-1px) !important;
+      }}
+      .stButton > button[kind="secondary"] {{
         border-radius: 8px !important; border: 1.5px solid #e2e8f0 !important;
-        font-weight: 600 !important; transition: all 0.15s !important;
-      }
-      .stButton > button[kind="secondary"]:hover {
-        border-color: #1a9fd4 !important; color: #1a9fd4 !important; background: #eff6ff !important;
-      }
+        font-weight: 600 !important; color: #334155 !important;
+        background: #fff !important; transition: all 0.15s !important;
+      }}
+      .stButton > button[kind="secondary"]:hover {{
+        border-color: #1a9fd4 !important; color: #1a9fd4 !important;
+        background: #eff6ff !important;
+      }}
 
       /* ── Tabs ── */
-      [data-testid="stTabs"] [data-baseweb="tab-list"] {
+      [data-testid="stTabs"] [data-baseweb="tab-list"] {{
         background: #f1f5f9 !important; border-radius: 10px !important;
         padding: 4px !important; gap: 2px !important;
-      }
-      [data-testid="stTabs"] [data-baseweb="tab"] {
+        border: 1px solid #e2e8f0 !important;
+      }}
+      [data-testid="stTabs"] [data-baseweb="tab"] {{
         border-radius: 7px !important; font-size: 13px !important;
-        font-weight: 600 !important; color: #64748b !important; padding: 8px 18px !important;
-      }
-      [data-testid="stTabs"] [aria-selected="true"] {
-        background: #fff !important; color: #0f172a !important;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.08) !important;
-      }
+        font-weight: 600 !important; color: #64748b !important;
+        padding: 8px 20px !important; transition: all 0.15s !important;
+      }}
+      [data-testid="stTabs"] [aria-selected="true"] {{
+        background: #fff !important; color: #0d1f3c !important;
+        box-shadow: 0 1px 6px rgba(0,0,0,0.08) !important;
+        font-weight: 700 !important;
+      }}
 
       /* ── Expanders ── */
-      [data-testid="stExpander"] {
-        border: 1.5px solid #e2e8f0 !important; border-radius: 10px !important; background: #fff !important;
-      }
+      [data-testid="stExpander"] {{
+        border: 1px solid #e2e8f0 !important; border-radius: 10px !important;
+        background: #fff !important; box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+      }}
 
       /* ── Dataframes ── */
-      [data-testid="stDataFrame"] { border-radius: 8px !important; overflow: hidden !important; }
-
-      /* ── Sidebar ── */
-      [data-testid="stSidebar"] { background: #0d1f3c !important; border-right: 1px solid #1a3060; }
-      [data-testid="stSidebar"] * { color: #93b4d4 !important; }
-      [data-testid="stSidebar"] .stButton > button {
-        width: 100%; text-align: left; background: transparent !important;
-        border: none !important; outline: none !important; box-shadow: none !important;
-        color: #93b4d4 !important; padding: 9px 16px; border-radius: 6px;
-        font-size: 13px; font-weight: 500; transition: all 0.15s;
-      }
-      [data-testid="stSidebar"] .stButton > button:hover {
-        background: rgba(26,159,212,0.10) !important; color: #e8f0fa !important;
-      }
-      [data-testid="stSidebar"] button { border: none !important; box-shadow: none !important; outline: none !important; }
-      [data-testid="stSidebar"] .stButton { margin-bottom: 1px !important; }
-      [data-testid="collapsedControl"] { display: none !important; }
-      button[data-testid="baseButton-header"] { display: none !important; }
-      section[data-testid="stSidebar"] {
-        min-width: 252px !important; width: 252px !important;
-        transform: translateX(0) !important; visibility: visible !important;
-      }
+      [data-testid="stDataFrame"] {{ border-radius: 8px !important; overflow: hidden !important; }}
 
       /* ── Metric cards ── */
-      div[data-testid="metric-container"] {
-        background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
-        padding: 22px 20px; border-top: 4px solid #1a9fd4;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: all 0.2s;
-      }
-      div[data-testid="metric-container"]:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
-      div[data-testid="metric-container"] label { color: #64748b !important; font-size: 11px !important; font-weight: 700 !important; text-transform: uppercase; letter-spacing: 0.6px; }
-      div[data-testid="metric-container"] div[data-testid="stMetricValue"] { color: #0f172a !important; font-size: 30px !important; font-weight: 800 !important; }
+      div[data-testid="metric-container"] {{
+        background: #fff; border: 1px solid #e8eef4; border-radius: 12px;
+        padding: 20px 18px; border-top: 3px solid #1a9fd4;
+        box-shadow: 0 1px 6px rgba(0,0,0,0.05); transition: all 0.2s;
+      }}
+      div[data-testid="metric-container"]:hover {{
+        transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.09);
+        border-top-color: #1b4fa8;
+      }}
+      div[data-testid="metric-container"] label {{
+        color: #64748b !important; font-size: 10px !important;
+        font-weight: 700 !important; text-transform: uppercase; letter-spacing: 0.8px;
+      }}
+      div[data-testid="metric-container"] div[data-testid="stMetricValue"] {{
+        color: #0d1f3c !important; font-size: 28px !important;
+        font-weight: 800 !important; font-family: 'JetBrains Mono', monospace !important;
+      }}
+      div[data-testid="stMetricDelta"] {{ font-size: 11px !important; font-weight: 600 !important; }}
 
-      /* ── Panels ── */
-      .glass-panel { background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
-      .panel-title { font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 18px; text-transform: uppercase; letter-spacing: 0.6px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; }
+      /* ── Glass panels ── */
+      .glass-panel {{
+        background: #fff; border-radius: 12px; border: 1px solid #e8eef4;
+        padding: 24px; box-shadow: 0 1px 6px rgba(0,0,0,0.05); margin-bottom: 18px;
+      }}
+      .panel-title {{
+        font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 16px;
+        text-transform: uppercase; letter-spacing: 1px;
+        border-bottom: 1px solid #f1f5f9; padding-bottom: 12px;
+      }}
 
       /* ── Pro forma table ── */
-      .proforma-table { width:100%; border-collapse:collapse; font-size:13px; }
-      .proforma-table th { text-align:right; padding:10px 12px; background:#f8fafc; color:#475569; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0; }
-      .proforma-table th:first-child { text-align:left; }
-      .proforma-table td { text-align:right; padding:9px 12px; border-bottom:1px solid #f1f5f9; color:#1e293b; font-family:'JetBrains Mono',monospace; font-size:12px; }
-      .proforma-table td:first-child { text-align:left; font-family:'Inter',sans-serif; font-weight:500; color:#334155; }
-      .proforma-table tr.noi-row td { font-weight:800; background:#eff6ff; color:#1d4ed8; border-top:2px solid #bfdbfe; border-bottom:2px solid #bfdbfe; }
-      .proforma-table tr.subtotal td { background:#f8fafc; font-weight:700; }
-      .proforma-table tr:hover { background:#f8fafc; }
+      .proforma-table {{ width:100%; border-collapse:collapse; font-size:13px; }}
+      .proforma-table th {{ text-align:right; padding:10px 12px; background:#f8fafc; color:#475569; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; border-bottom:2px solid #e2e8f0; }}
+      .proforma-table th:first-child {{ text-align:left; }}
+      .proforma-table td {{ text-align:right; padding:9px 12px; border-bottom:1px solid #f1f5f9; color:#1e293b; font-family:'JetBrains Mono',monospace; font-size:12px; }}
+      .proforma-table td:first-child {{ text-align:left; font-family:'Inter',sans-serif; font-weight:500; color:#334155; }}
+      .proforma-table tr.noi-row td {{ font-weight:800; background:#eff6ff; color:#1d4ed8; border-top:2px solid #bfdbfe; border-bottom:2px solid #bfdbfe; }}
+      .proforma-table tr.subtotal td {{ background:#f8fafc; font-weight:700; }}
+      .proforma-table tr:hover {{ background:#f8fafc; }}
 
       /* ── Grade badges ── */
-      .grade-badge { display:inline-block; padding:4px 16px; border-radius:20px; font-weight:800; font-size:22px; letter-spacing:-0.5px; }
-      .grade-a { background:#dcfce7; color:#166534; }
-      .grade-b { background:#dbeafe; color:#1e40af; }
-      .grade-c { background:#fef9c3; color:#854d0e; }
-      .grade-d { background:#fee2e2; color:#991b1b; }
+      .grade-badge {{ display:inline-block; padding:4px 16px; border-radius:20px; font-weight:800; font-size:22px; }}
+      .grade-a {{ background:#dcfce7; color:#166534; }}
+      .grade-b {{ background:#dbeafe; color:#1e40af; }}
+      .grade-c {{ background:#fef9c3; color:#854d0e; }}
+      .grade-d {{ background:#fee2e2; color:#991b1b; }}
 
-      /* ── Tracker / pipeline ── */
-      .tracker-card { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:14px 16px; margin-bottom:10px; border-left:4px solid #1a9fd4; }
-      .tracker-correct { border-left-color:#16a34a; }
-      .tracker-watch   { border-left-color:#d97706; }
-      .tracker-alert   { border-left-color:#dc2626; }
-      .status-pill   { padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700; }
-      .status-active { background:#dbeafe; color:#1d4ed8; }
-      .status-closed { background:#dcfce7; color:#166534; }
-      .status-watch  { background:#fef9c3; color:#92400e; }
+      /* ── Status pills ── */
+      .tracker-card {{ background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:14px 16px; margin-bottom:10px; border-left:4px solid #1a9fd4; }}
+      .tracker-correct {{ border-left-color:#16a34a; }}
+      .tracker-watch   {{ border-left-color:#d97706; }}
+      .tracker-alert   {{ border-left-color:#dc2626; }}
+      .status-pill   {{ padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700; }}
+      .status-active {{ background:#dbeafe; color:#1d4ed8; }}
+      .status-closed {{ background:#dcfce7; color:#166534; }}
+      .status-watch  {{ background:#fef9c3; color:#92400e; }}
 
-      /* ── Onboarding tooltip ── */
-      .onboard-tip {
-        background: linear-gradient(135deg, #eff6ff, #f8fafc);
-        border: 1px solid #1a9fd4; border-left: 4px solid #1a9fd4;
-        border-radius: 10px; padding: 16px 20px; margin-bottom: 20px;
-        box-shadow: 0 2px 12px rgba(26,159,212,0.10);
-      }
-      .onboard-step  { font-size:10px; font-weight:700; color:#1a9fd4; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
-      .onboard-title { font-size:14px; font-weight:800; color:#0d1f3c; margin-bottom:6px; }
-      .onboard-text  { font-size:13px; color:#334155; line-height:1.7; }
-      .onboard-badge { display:inline-block; background:#eff6ff; color:#1b4fa8; font-size:10px; font-weight:700; padding:2px 8px; border-radius:4px; margin-right:6px; text-transform:uppercase; letter-spacing:0.5px; }
+      /* ── Sidebar ── */
+      [data-testid="stSidebar"] {{
+        background: linear-gradient(180deg,#07111f 0%,#0d1f3c 100%) !important;
+        border-right: 1px solid #1a2d4a;
+      }}
+      [data-testid="stSidebar"] * {{ color: #7a9bbe !important; }}
+      [data-testid="stSidebar"] .stButton > button {{
+        width: 100%; text-align: left; background: transparent !important;
+        border: none !important; outline: none !important; box-shadow: none !important;
+        color: #7a9bbe !important; padding: 9px 14px 9px 16px; border-radius: 7px;
+        font-size: 13px; font-weight: 500; transition: all 0.12s;
+        border-left: 3px solid transparent !important;
+      }}
+      [data-testid="stSidebar"] .stButton > button:hover {{
+        background: rgba(26,159,212,0.08) !important;
+        color: #d4e9f7 !important;
+        border-left-color: rgba(26,159,212,0.4) !important;
+      }}
+      [data-testid="stSidebar"] button {{ border: none !important; box-shadow: none !important; outline: none !important; }}
+      [data-testid="stSidebar"] .stButton {{ margin-bottom: 1px !important; }}
+      [data-testid="collapsedControl"] {{ display: none !important; }}
+      button[data-testid="baseButton-header"] {{ display: none !important; }}
+      section[data-testid="stSidebar"] {{
+        min-width: 256px !important; width: 256px !important;
+        transform: translateX(0) !important; visibility: visible !important;
+      }}
+
+      /* ── Active sidebar nav item highlight ── */
+      .nav-active > button {{
+        background: rgba(26,159,212,0.14) !important;
+        color: #e8f4fd !important;
+        border-left: 3px solid #1a9fd4 !important;
+        font-weight: 700 !important;
+      }}
+
+      /* ── Onboarding system ── */
+      .onboard-banner {{
+        background: linear-gradient(135deg,#f0f9ff,#eff6ff);
+        border: 1px solid #bae6fd; border-left: 5px solid #1a9fd4;
+        border-radius: 12px; padding: 0; margin-bottom: 24px;
+        box-shadow: 0 2px 16px rgba(26,159,212,0.10); overflow: hidden;
+      }}
+      .onboard-header {{
+        background: linear-gradient(135deg,#0d1f3c,#1b4fa8);
+        padding: 12px 20px; display: flex; align-items: center;
+        justify-content: space-between;
+      }}
+      .onboard-body {{ padding: 16px 20px 18px; }}
+      .onboard-step  {{ font-size:10px; font-weight:700; color:#7dd3fc; text-transform:uppercase; letter-spacing:1.5px; }}
+      .onboard-title {{ font-size:15px; font-weight:800; color:#fff; margin-top:2px; }}
+      .onboard-text  {{ font-size:13px; color:#1e3a5f; line-height:1.75; margin-bottom:10px; }}
+      .onboard-tip-row {{ display:flex; align-items:flex-start; gap:8px; background:#e0f2fe; border-radius:8px; padding:10px 14px; }}
+      .onboard-tip-icon {{ font-size:14px; flex-shrink:0; margin-top:1px; }}
+      .onboard-tip-text {{ font-size:12px; color:#075985; line-height:1.6; }}
+      .onboard-badge {{ display:inline-block; background:rgba(255,255,255,0.15); color:#bae6fd; font-size:9px; font-weight:700; padding:2px 8px; border-radius:4px; text-transform:uppercase; letter-spacing:1px; }}
+      .onboard-progress {{ display:flex; gap:4px; align-items:center; }}
+      .onboard-dot {{ width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.25); }}
+      .onboard-dot-active {{ background:#1a9fd4; width:18px; border-radius:3px; }}
 
       /* ── Chat ── */
-      .stChatFloatingInputContainer { background: transparent !important; padding: 12px 0 !important; }
+      .stChatFloatingInputContainer {{ background: transparent !important; padding: 12px 0 !important; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -1161,16 +1276,48 @@ def render_onboarding_tip(view_key: str):
     tip = ONBOARDING_STEPS.get(view_key)
     if not tip:
         return
-    st.markdown(f"""
-    <div class="onboard-tip">
-      <div class="onboard-step">{tip["step"]} &nbsp;&nbsp; <span class="onboard-badge">Patent Pending</span></div>
-      <div class="onboard-title">{tip["title"]}</div>
-      <div class="onboard-text">{tip["text"]}</div>
-      <div style="margin-top:10px;font-size:12px;color:#1a9fd4;">
-        <b>Pro Tip:</b> {tip["tip"]}
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+
+    # Progress dots
+    all_keys = list(ONBOARDING_STEPS.keys())
+    current_idx = all_keys.index(view_key) if view_key in all_keys else 0
+    dots_html = "".join([
+        f'<div class="onboard-dot{"" if i != current_idx else "-active"}" style="width:{"18" if i==current_idx else "6"}px;height:6px;border-radius:{"3" if i==current_idx else "50%"};background:{"#1a9fd4" if i==current_idx else "rgba(255,255,255,0.25)"};"></div>'
+        for i in range(len(all_keys))
+    ])
+
+    col_tip, col_dismiss = st.columns([12, 1])
+    with col_tip:
+        st.markdown(f"""
+        <div class="onboard-banner">
+          <div class="onboard-header">
+            <div>
+              <div class="onboard-step">{tip["step"]} &nbsp;<span class="onboard-badge">Patent Pending</span></div>
+              <div class="onboard-title">{tip.get("emoji","")} {tip["title"]}</div>
+            </div>
+            <div style="display:flex;gap:4px;align-items:center;">{dots_html}</div>
+          </div>
+          <div class="onboard-body">
+            <div class="onboard-text">{tip["text"]}</div>
+            <div class="onboard-tip-row">
+              <div class="onboard-tip-icon">💡</div>
+              <div class="onboard-tip-text"><b>Pro Tip:</b> {tip["tip"]}</div>
+            </div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_dismiss:
+        if st.button("✕", key=f"dismiss_{view_key}", help="Dismiss this tip"):
+            st.session_state[f"dismissed_{view_key}"] = True
+            st.rerun()
+
+    # Action button if defined
+    action = tip.get("action")
+    action_label = tip.get("action_label")
+    if action and action_label:
+        if st.button(action_label, key=f"onboard_action_{view_key}", type="primary"):
+            st.session_state.current_view = action
+            st.rerun()
+    st.markdown("<br>", unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # SECTION 4 │ AUTH
@@ -4293,82 +4440,110 @@ Keep it concise and action-oriented. No fluff."""
 # ──────────────────────────────────────────────────────────────────────────────
 # SECTION 7 │ SIDEBAR & ROUTER
 # ──────────────────────────────────────────────────────────────────────────────
+def nav_btn(label, view_key, current_view):
+    is_active = current_view == view_key
+    if is_active:
+        st.markdown(
+            '<div style="background:rgba(26,159,212,0.14);border-radius:7px;border-left:3px solid #1a9fd4;margin-bottom:1px;">',
+            unsafe_allow_html=True
+        )
+    if st.button(("\u25b8 " if is_active else "  ") + label,
+                 key=f"nav_{view_key}", use_container_width=True):
+        st.session_state.current_view = view_key
+        st.rerun()
+    if is_active:
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
 def render_sidebar():
+    v = st.session_state.get("current_view", "Dashboard")
     with st.sidebar:
         st.markdown(f'''
-        <div style="padding:20px 16px 20px;border-bottom:1px solid rgba(255,255,255,0.07);
-                    margin-bottom:8px;text-align:center;">
-          <div style="background:#ffffff;border-radius:10px;display:inline-block;
-                      padding:8px 16px;margin-bottom:10px;
-                      box-shadow:0 2px 12px rgba(0,0,0,0.25);">
-            <img src="{AIRE_LOGO_URI}" style="height:36px;display:block;" />
+        <div style="padding:18px 14px 16px;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:10px;text-align:center;">
+          <div style="background:#fff;border-radius:10px;display:inline-block;padding:7px 14px;margin-bottom:8px;box-shadow:0 2px 10px rgba(0,0,0,0.22);">
+            <img src="{AIRE_LOGO_URI}" style="height:32px;display:block;" />
           </div>
-          <div style="font-size:9px;color:#4d9fd4;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Integrated Real Estate</div>
-          <div style="font-size:8px;color:rgba(255,255,255,0.28);letter-spacing:1px;margin-top:3px;">Patent Pending</div>
+          <div style="font-size:8px;color:#4d9fd4;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;">Integrated Real Estate</div>
+          <div style="font-size:7px;color:rgba(255,255,255,0.22);letter-spacing:1px;margin-top:2px;">Patent Pending</div>
         </div>
         ''', unsafe_allow_html=True)
-        
-        st.markdown("<div style='font-size:10px; color:#4d9fd4; font-weight:700; letter-spacing:1px; margin-bottom:8px;'>DEAL ANALYSIS</div>", unsafe_allow_html=True)
-        if st.button("Deal Dashboard"):     st.session_state.current_view = "Dashboard";    st.rerun()
-        if st.button("AI Data Room"):       st.session_state.current_view = "DataRoom";     st.rerun()
-        if st.button("AI Tracker"):         st.session_state.current_view = "AITracker";    st.rerun()
-        if st.button("AI Deal Scorer"):     st.session_state.current_view = "AIScorer";     st.rerun()
-        if st.button("Market Data"):        st.session_state.current_view = "MarketData";   st.rerun()
-        if st.button("IC Memo Generator"):  st.session_state.current_view = "ICMemo";       st.rerun()
-        if st.button("Memo Delivery"):      st.session_state.current_view = "MemoDelivery"; st.rerun()
 
-        st.markdown("<div style='font-size:10px; color:#4d9fd4; font-weight:700; letter-spacing:1px; margin:20px 0 8px;'>UNDERWRITING TOOLS</div>", unsafe_allow_html=True)
-        if st.button("Debt Structuring"):   st.session_state.current_view = "DebtModel";    st.rerun()
-        if st.button("Waterfall Calc"):     st.session_state.current_view = "Waterfall";    st.rerun()
-        if st.button("Deal Comparison"):    st.session_state.current_view = "Compare";      st.rerun()
-        if st.button("Portfolio Alerts"):   st.session_state.current_view = "Alerts";       st.rerun()
-        if st.button("Stress Testing"):     st.session_state.current_view = "StressTest";   st.rerun()
-        if st.button("Version Pro Formas"): st.session_state.current_view = "VersionPF";    st.rerun()
+        if st.session_state.get("onboarding_mode"):
+            st.markdown(
+                '<div style="background:rgba(26,159,212,0.12);border:1px solid rgba(26,159,212,0.25);border-radius:6px;padding:6px 12px;margin-bottom:10px;text-align:center;"><span style="font-size:10px;color:#1a9fd4;font-weight:700;letter-spacing:0.5px;">GUIDED MODE ON</span></div>',
+                unsafe_allow_html=True
+            )
 
-        st.markdown("<div style='font-size:10px; color:#4d9fd4; font-weight:700; letter-spacing:1px; margin:20px 0 8px;'>PORTFOLIO & INVESTORS</div>", unsafe_allow_html=True)
-        if st.button("Master Pipeline"):    st.session_state.current_view = "Pipeline";     st.rerun()
-        if st.button("Deal CRM"):           st.session_state.current_view = "CRM";          st.rerun()
-        if st.button("LP Portal"):          st.session_state.current_view = "LPPortal";     st.rerun()
-        if st.button("OM Import"):          st.session_state.current_view = "OMImport";     st.rerun()
-        if st.button("Broker Emails"):      st.session_state.current_view = "BrokerEmails"; st.rerun()
+        def section(label):
+            st.markdown(
+                f'<div style="font-size:9px;color:#3d6a8a;font-weight:700;letter-spacing:1.5px;margin:16px 0 6px 4px;text-transform:uppercase;">{label}</div>',
+                unsafe_allow_html=True
+            )
 
-        st.markdown("<div style='font-size:10px; color:#4d9fd4; font-weight:700; letter-spacing:1px; margin:20px 0 8px;'>FIRM SETTINGS</div>", unsafe_allow_html=True)
-        if st.button("Team"):               st.session_state.current_view = "Team";         st.rerun()
-        if st.button("White-Label"):        st.session_state.current_view = "WhiteLabel";   st.rerun()
-        if st.button("Lender Database"):    st.session_state.current_view = "LenderDB";     st.rerun()
-        if st.button("Settings"):           st.session_state.current_view = "Settings";     st.rerun()
-        
+        section("Deal Analysis")
+        nav_btn("Deal Dashboard",    "Dashboard",    v)
+        nav_btn("AI Data Room",      "DataRoom",     v)
+        nav_btn("AI Tracker",        "AITracker",    v)
+        nav_btn("AI Deal Scorer",    "AIScorer",     v)
+        nav_btn("Market Data",       "MarketData",   v)
+        nav_btn("IC Memo",           "ICMemo",       v)
+        nav_btn("Memo Delivery",     "MemoDelivery", v)
+
+        section("Underwriting Tools")
+        nav_btn("Debt Structuring",  "DebtModel",    v)
+        nav_btn("Waterfall Calc",    "Waterfall",    v)
+        nav_btn("Deal Comparison",   "Compare",      v)
+        nav_btn("Portfolio Alerts",  "Alerts",       v)
+        nav_btn("Stress Testing",    "StressTest",   v)
+        nav_btn("Version Pro Forma", "VersionPF",    v)
+
+        section("Portfolio & Investors")
+        nav_btn("Master Pipeline",   "Pipeline",     v)
+        nav_btn("Deal CRM",          "CRM",          v)
+        nav_btn("LP Portal",         "LPPortal",     v)
+        nav_btn("OM Import",         "OMImport",     v)
+        nav_btn("Broker Emails",     "BrokerEmails", v)
+
+        section("Firm")
+        nav_btn("Team",              "Team",         v)
+        nav_btn("White-Label",       "WhiteLabel",   v)
+        nav_btn("Lender Database",   "LenderDB",     v)
+        nav_btn("Settings",          "Settings",     v)
+
         # Active deal pill
         d = st.session_state.deal_data
+        grade_color = {"A":"#16a34a","B":"#1d4ed8","C":"#d97706","D":"#dc2626"}
         if d:
-            deal_name = d['name']
-            deal_irr = f"{d['irr']:.1%}"
-            deal_grade = d['grade']
-            st.markdown(f"""
-            <div style="margin-top:24px; background:rgba(26,159,212,0.08); border-radius:8px; padding:12px; border:1px solid rgba(26,159,212,0.20);">
-              <div style="font-size:10px; color:#4d7a9e; font-weight:700; letter-spacing:0.5px; margin-bottom:4px;">ACTIVE DEAL</div>
-              <div style="font-size:12px; color:#e8f0fa; font-weight:600; line-height:1.4;">{deal_name}</div>
-              <div style="font-size:11px; color:#1a9fd4; font-weight:700; font-family:'JetBrains Mono';">IRR {deal_irr} | Grade {deal_grade}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            gc = grade_color.get(d.get("grade","B"),"#1d4ed8")
+            st.markdown(
+                f'<div style="margin-top:18px;background:rgba(26,159,212,0.08);border-radius:10px;padding:12px 14px;border:1px solid rgba(26,159,212,0.18);">' +
+                '<div style="font-size:9px;color:#3d6a8a;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Active Deal</div>' +
+                f'<div style="font-size:13px;color:#d4e9f7;font-weight:700;line-height:1.3;margin-bottom:4px;">{d["name"]}</div>' +
+                f'<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                f'<span style="font-size:12px;color:#1a9fd4;font-weight:700;font-family:monospace;">{d["irr"]:.1%} IRR</span>' +
+                f'<span style="background:{gc};color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:4px;">Grade {d["grade"]}</span>' +
+                '</div></div>',
+                unsafe_allow_html=True
+            )
         else:
-            st.markdown("""
-            <div style="margin-top:24px; background:rgba(26,159,212,0.08); border-radius:8px; padding:12px; border:1px solid rgba(26,159,212,0.20);">
-              <div style="font-size:10px; color:#64748b; font-weight:700; letter-spacing:0.5px; margin-bottom:4px;">ACTIVE DEAL</div>
-              <div style="font-size:12px; color:#475569; font-style:italic;">No deal loaded</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Bottom user info
-        st.markdown("<br>"*4, unsafe_allow_html=True)
-        st.markdown(f"""
-        <div style="border-top:1px solid rgba(255,255,255,0.07); padding-top:14px; font-size:12px; color:#64748b;">
-          {st.session_state.user_email}<br>
-          <span style="color:#3b82f6; font-weight:700;">{st.session_state.firm_id}</span>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("Logout", key="logout"):
+            st.markdown(
+                '<div style="margin-top:18px;background:rgba(255,255,255,0.03);border-radius:10px;padding:12px 14px;border:1px dashed rgba(255,255,255,0.08);">' +
+                '<div style="font-size:9px;color:#3d6a8a;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Active Deal</div>' +
+                '<div style="font-size:12px;color:#2d4a6a;font-style:italic;">No deal loaded</div>' +
+                '<div style="font-size:10px;color:#1a3a5a;margin-top:4px;">Add a deal in Master Pipeline</div>' +
+                '</div>',
+                unsafe_allow_html=True
+            )
+
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown(
+            f'<div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:12px;">' +
+            f'<div style="font-size:11px;color:#2d4a6a;margin-bottom:2px;">{st.session_state.user_email}</div>' +
+            f'<div style="font-size:12px;font-weight:700;color:#1a9fd4;">{st.session_state.firm_id}</div>' +
+            '</div>',
+            unsafe_allow_html=True
+        )
+        if st.button("Sign Out", key="logout"):
             st.session_state.clear()
             st.rerun()
 
