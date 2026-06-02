@@ -4582,31 +4582,14 @@ def render_sidebar():
     """, unsafe_allow_html=True)
 
     with st.sidebar:
-        # ── Logo — use SVG for crisp rendering at any resolution ──
+        # ── Logo — original AIRE brand image ──
         st.markdown(f'''
         <div style="padding:16px 12px 14px;border-bottom:1px solid rgba(255,255,255,0.06);
                     margin-bottom:8px;text-align:center;">
-          <div style="background:#fff;border-radius:10px;padding:8px 14px;
+          <div style="background:#fff;border-radius:10px;padding:7px 14px;
                       display:inline-block;margin-bottom:8px;
                       box-shadow:0 2px 10px rgba(0,0,0,0.22);">
-            <!-- Crisp SVG logo — matches AIRE brand exactly, no pixelation -->
-            <svg width="80" height="28" viewBox="0 0 120 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <!-- A -->
-              <path d="M2 38 L14 8 L26 38" stroke="#07111f" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              <line x1="7" y1="26" x2="21" y2="26" stroke="#07111f" stroke-width="4" stroke-linecap="round"/>
-              <!-- i (sky blue) -->
-              <circle cx="38" cy="10" r="3.5" fill="#1a9fd4"/>
-              <line x1="38" y1="18" x2="38" y2="38" stroke="#1a9fd4" stroke-width="5.5" stroke-linecap="round"/>
-              <!-- R -->
-              <line x1="50" y1="8" x2="50" y2="38" stroke="#07111f" stroke-width="5.5" stroke-linecap="round"/>
-              <path d="M50 8 Q70 8 70 18 Q70 28 50 28" stroke="#07111f" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              <line x1="58" y1="28" x2="72" y2="38" stroke="#07111f" stroke-width="4.5" stroke-linecap="round"/>
-              <!-- E -->
-              <line x1="84" y1="8" x2="84" y2="38" stroke="#07111f" stroke-width="5.5" stroke-linecap="round"/>
-              <line x1="84" y1="8" x2="108" y2="8" stroke="#07111f" stroke-width="4.5" stroke-linecap="round"/>
-              <line x1="84" y1="23" x2="102" y2="23" stroke="#07111f" stroke-width="4.5" stroke-linecap="round"/>
-              <line x1="84" y1="38" x2="108" y2="38" stroke="#07111f" stroke-width="4.5" stroke-linecap="round"/>
-            </svg>
+            <img src="{AIRE_LOGO_URI}" style="height:32px;display:block;" />
           </div>
           <div style="font-size:7.5px;color:#4d9fd4;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Integrated Real Estate</div>
           <div style="font-size:6.5px;color:rgba(255,255,255,0.20);letter-spacing:1px;margin-top:1px;">Patent Pending</div>
