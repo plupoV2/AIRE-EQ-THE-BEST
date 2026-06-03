@@ -4512,39 +4512,67 @@ Keep it concise and action-oriented. No fluff."""
 # SECTION 7 │ SIDEBAR & ROUTER
 # ──────────────────────────────────────────────────────────────────────────────
 
-NAV_ITEMS = {
-    "DEAL ANALYSIS": [
-        ("Deal Dashboard",    "Dashboard",    "▪"),
-        ("AI Data Room",      "DataRoom",     "▪"),
-        ("AI Tracker",        "AITracker",    "▪"),
-        ("AI Deal Scorer",    "AIScorer",     "▪"),
-        ("Market Data",       "MarketData",   "▪"),
-        ("IC Memo",           "ICMemo",       "▪"),
-        ("Memo Delivery",     "MemoDelivery", "▪"),
-    ],
-    "UNDERWRITING": [
-        ("Debt Structuring",  "DebtModel",    "▪"),
-        ("Waterfall Calc",    "Waterfall",    "▪"),
-        ("Deal Comparison",   "Compare",      "▪"),
-        ("Portfolio Alerts",  "Alerts",       "▪"),
-        ("Stress Testing",    "StressTest",   "▪"),
-        ("Version Pro Forma", "VersionPF",    "▪"),
-    ],
-    "PORTFOLIO": [
-        ("Master Pipeline",   "Pipeline",     "▪"),
-        ("Firm Analytics",    "Analytics",    "▪"),
-        ("Deal CRM",          "CRM",          "▪"),
-        ("LP Portal",         "LPPortal",     "▪"),
-        ("OM Import",         "OMImport",     "▪"),
-        ("Broker Emails",     "BrokerEmails", "▪"),
-    ],
-    "FIRM": [
-        ("Team",              "Team",         "▪"),
-        ("White-Label",       "WhiteLabel",   "▪"),
-        ("Lender Database",   "LenderDB",     "▪"),
-        ("Settings",          "Settings",     "▪"),
-    ],
-}
+# Each section has a color, icon, and items
+# color = accent used for section label and active indicator
+NAV_SECTIONS = [
+    {
+        "label": "ANALYSIS",
+        "color": "#1a9fd4",   # sky blue
+        "bg":    "rgba(26,159,212,0.10)",
+        "items": [
+            ("Deal Dashboard",  "Dashboard"),
+            ("AI Data Room",    "DataRoom"),
+            ("AI Tracker",      "AITracker"),
+            ("AI Deal Scorer",  "AIScorer"),
+            ("Market Data",     "MarketData"),
+        ],
+    },
+    {
+        "label": "MEMOS",
+        "color": "#7c3aed",   # purple
+        "bg":    "rgba(124,58,237,0.10)",
+        "items": [
+            ("IC Memo Generator","ICMemo"),
+            ("Memo Delivery",    "MemoDelivery"),
+            ("Broker Emails",    "BrokerEmails"),
+        ],
+    },
+    {
+        "label": "UNDERWRITING",
+        "color": "#1a6fe0",   # blue
+        "bg":    "rgba(26,111,224,0.10)",
+        "items": [
+            ("Debt Structuring", "DebtModel"),
+            ("Waterfall Calc",   "Waterfall"),
+            ("Deal Comparison",  "Compare"),
+            ("Stress Testing",   "StressTest"),
+            ("Version Pro Forma","VersionPF"),
+        ],
+    },
+    {
+        "label": "PORTFOLIO",
+        "color": "#059669",   # emerald green
+        "bg":    "rgba(5,150,105,0.10)",
+        "items": [
+            ("Master Pipeline",  "Pipeline"),
+            ("Portfolio Alerts", "Alerts"),
+            ("Deal CRM",         "CRM"),
+            ("LP Portal",        "LPPortal"),
+            ("OM Import",        "OMImport"),
+        ],
+    },
+    {
+        "label": "FIRM",
+        "color": "#64748b",   # slate
+        "bg":    "rgba(100,116,139,0.10)",
+        "items": [
+            ("Team",             "Team"),
+            ("White-Label",      "WhiteLabel"),
+            ("Lender Database",  "LenderDB"),
+            ("Settings",         "Settings"),
+        ],
+    },
+]
 
 def nav_btn(label, view_key, current_view):
     is_active = current_view == view_key
@@ -4557,26 +4585,29 @@ def nav_btn(label, view_key, current_view):
 def render_sidebar():
     v = st.session_state.get("current_view", "Dashboard")
 
-    # ── Slim sidebar CSS override ──
+    # ── Sidebar premium CSS ──
     st.markdown("""
     <style>
-      /* Slimmer sidebar */
       section[data-testid="stSidebar"] {
-        min-width: 210px !important; width: 210px !important;
+        min-width: 218px !important; width: 218px !important;
       }
-      /* Active nav item */
       [data-testid="stSidebar"] .stButton > button {
-        font-size: 12.5px !important;
-        padding: 7px 12px !important;
+        font-size: 12px !important;
+        padding: 6px 10px !important;
         text-align: left !important;
-        font-weight: 500 !important;
-        color: #8fb3d4 !important;
+        font-weight: 400 !important;
+        color: #4a7a9e !important;
         border-radius: 6px !important;
         letter-spacing: 0.01em !important;
+        font-family: 'Inter', sans-serif !important;
+        transition: all 0.1s !important;
       }
       [data-testid="stSidebar"] .stButton > button:hover {
-        background: rgba(255,255,255,0.06) !important;
-        color: #e8f4fd !important;
+        background: rgba(255,255,255,0.05) !important;
+        color: #c8dff0 !important;
+      }
+      [data-testid="stSidebar"] .stButton {
+        margin-bottom: 0px !important;
       }
     </style>
     """, unsafe_allow_html=True)
@@ -4605,19 +4636,29 @@ def render_sidebar():
                 unsafe_allow_html=True
             )
 
-        # ── Navigation ──
-        for section, items in NAV_ITEMS.items():
+        # ── Navigation — color-coded sections ──
+        for section in NAV_SECTIONS:
+            sec_color = section["color"]
+            sec_bg    = section["bg"]
+            sec_label = section["label"]
+
+            # Section header with colored left accent
             st.markdown(
-                f'<div style="font-size:8.5px;color:#2d5070;font-weight:700;letter-spacing:2px;'
-                f'margin:14px 0 4px 4px;text-transform:uppercase;">{section}</div>',
+                f'<div style="display:flex;align-items:center;gap:6px;'
+                f'margin:16px 0 5px 2px;padding-left:6px;">'
+                f'<div style="width:3px;height:12px;background:{sec_color};border-radius:2px;flex-shrink:0;"></div>'
+                f'<span style="font-size:8.5px;color:{sec_color};font-weight:700;'
+                f'letter-spacing:2px;text-transform:uppercase;opacity:0.85;">{sec_label}</span>'
+                f'</div>',
                 unsafe_allow_html=True
             )
-            for label, view_key, _ in items:
+
+            for label, view_key in section["items"]:
                 is_active = v == view_key
                 if is_active:
                     st.markdown(
-                        '<div style="background:rgba(26,111,224,0.14);border-radius:6px;'
-                        'border-left:2.5px solid #1a6fe0;margin-bottom:1px;">',
+                        f'<div style="background:{sec_bg};border-radius:6px;'
+                        f'border-left:3px solid {sec_color};margin-bottom:1px;">',
                         unsafe_allow_html=True
                     )
                 if st.button(
@@ -4630,44 +4671,61 @@ def render_sidebar():
                 if is_active:
                     st.markdown("</div>", unsafe_allow_html=True)
 
-        # ── Active deal pill ──
+        # ── Active deal pill — premium card ──
         d = st.session_state.deal_data
-        grade_color = {"A":"#16a34a","B":"#1a6fe0","C":"#d97706","D":"#dc2626"}
+        st.markdown("<div style='height:1px;background:rgba(255,255,255,0.05);margin:16px 0 12px;'></div>", unsafe_allow_html=True)
+        grade_colors = {"A":"#059669","B":"#1a6fe0","C":"#d97706","D":"#dc2626"}
         if d:
-            gc = grade_color.get(d.get("grade","B"),"#1a6fe0")
-            st.markdown(
-                f'<div style="margin-top:14px;background:rgba(26,111,224,0.08);border-radius:8px;'
-                f'padding:10px 12px;border:1px solid rgba(26,111,224,0.16);">' +
-                '<div style="font-size:8px;color:#2d5070;font-weight:700;letter-spacing:1px;'
-                'text-transform:uppercase;margin-bottom:5px;">Active Deal</div>' +
-                f'<div style="font-size:12px;color:#d4e9f7;font-weight:700;line-height:1.3;margin-bottom:4px;">{d["name"][:20]}</div>' +
-                f'<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                f'<span style="font-size:11px;color:#1a9fd4;font-weight:700;font-family:monospace;">{d["irr"]:.1%} IRR</span>' +
-                f'<span style="background:{gc};color:#fff;font-size:10px;font-weight:800;padding:1px 7px;border-radius:3px;">Grade {d["grade"]}</span>' +
-                '</div></div>',
-                unsafe_allow_html=True
-            )
+            gc   = grade_colors.get(d.get("grade","B"),"#1a6fe0")
+            irr  = d.get("irr", 0)
+            name = d["name"][:22]
+            grade = d.get("grade","B")
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,rgba(26,111,224,0.12),rgba(26,159,212,0.06));
+                        border:1px solid rgba(26,111,224,0.20);border-radius:10px;
+                        padding:12px 12px 10px;">
+              <div style="font-size:8px;color:#2a6fa8;font-weight:700;letter-spacing:1.5px;
+                          text-transform:uppercase;margin-bottom:6px;">Active Deal</div>
+              <div style="font-size:13px;color:#e8f4fd;font-weight:700;line-height:1.2;
+                          margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{name}</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="text-align:left;">
+                  <div style="font-size:8px;color:#2a5070;font-weight:600;margin-bottom:1px;">IRR</div>
+                  <div style="font-size:14px;font-weight:800;color:#1a9fd4;font-family:monospace;">{irr:.1%}</div>
+                </div>
+                <div style="background:{gc};color:#fff;font-size:11px;font-weight:800;
+                            padding:4px 10px;border-radius:6px;letter-spacing:0.5px;">
+                  {grade}
+                </div>
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.markdown(
-                '<div style="margin-top:14px;background:rgba(255,255,255,0.02);border-radius:8px;'
-                'padding:10px 12px;border:1px dashed rgba(255,255,255,0.07);">' +
-                '<div style="font-size:8px;color:#2d4a6a;font-weight:700;letter-spacing:1px;'
-                'text-transform:uppercase;margin-bottom:3px;">Active Deal</div>' +
-                '<div style="font-size:11px;color:#1e3a5a;font-style:italic;">No deal loaded</div>' +
-                '<div style="font-size:10px;color:#162d42;margin-top:3px;">Add via Master Pipeline</div>' +
-                '</div>',
-                unsafe_allow_html=True
-            )
+            st.markdown("""
+            <div style="border:1px dashed rgba(255,255,255,0.06);border-radius:10px;
+                        padding:12px;text-align:center;">
+              <div style="font-size:8px;color:#1e3a5a;font-weight:700;letter-spacing:1px;
+                          text-transform:uppercase;margin-bottom:4px;">No Deal Loaded</div>
+              <div style="font-size:11px;color:#162d42;">Open Master Pipeline<br>to add your first deal</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        # ── User + sign out ──
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown(
-            f'<div style="border-top:1px solid rgba(255,255,255,0.05);padding-top:10px;">' +
-            f'<div style="font-size:10px;color:#1e3a5a;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{st.session_state.user_email}</div>' +
-            f'<div style="font-size:11px;font-weight:700;color:#1a9fd4;">{st.session_state.firm_id}</div>' +
-            '</div>',
-            unsafe_allow_html=True
-        )
+        # ── User footer ──
+        st.markdown("<div style='height:1px;background:rgba(255,255,255,0.05);margin:14px 0 10px;'></div>", unsafe_allow_html=True)
+        email_short = st.session_state.user_email or ""
+        firm_id     = st.session_state.firm_id or ""
+        st.markdown(f"""
+        <div style="padding:0 2px 2px;">
+          <div style="font-size:10px;color:#1a3a5a;overflow:hidden;text-overflow:ellipsis;
+                      white-space:nowrap;margin-bottom:2px;">{email_short}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:11px;font-weight:700;color:#1a9fd4;letter-spacing:0.5px;">{firm_id}</span>
+            <span style="background:rgba(26,111,224,0.12);color:#1a6fe0;font-size:8px;
+                         font-weight:700;padding:2px 6px;border-radius:3px;text-transform:uppercase;
+                         letter-spacing:0.5px;">PRO</span>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
         if st.button("Sign Out", key="logout"):
             st.session_state.clear()
             st.rerun()
@@ -4712,7 +4770,6 @@ def main():
     elif v == "WhiteLabel":     view_whitelabel()
     elif v == "LenderDB":       view_lender_db()
     elif v == "BrokerEmails":   view_broker_emails()
-    elif v == "Analytics":       view_firm_analytics()
 
 if __name__ == "__main__":
     main()
