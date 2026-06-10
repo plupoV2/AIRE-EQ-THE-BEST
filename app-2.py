@@ -24,6 +24,12 @@ except ImportError:
     from openai import OpenAI
 
 try:
+    import anthropic
+except ImportError:
+    _install("anthropic")
+    import anthropic
+
+try:
     from supabase import create_client, Client
 except ImportError:
     _install("supabase")
@@ -139,211 +145,395 @@ st.set_page_config(
 # SECTION 1 │ ENTERPRISE CSS
 # ──────────────────────────────────────────────────────────────────────────────
 def inject_css():
-    v = st.session_state.get("current_view","Dashboard")
-    st.markdown(f"""
+    st.markdown("""
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
+      /* ── FONTS — exact match to aire.rent ── */
+      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
 
-      /* ── Base ── */
-      html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; }}
-      .stApp {{ background: #f0f4f8; }}
-      #MainMenu, footer, header {{ visibility: hidden; }}
-      .block-container {{ padding-top: 1.5rem !important; padding-bottom: 2rem !important; max-width: 1200px; }}
+      /* ── DESIGN TOKENS — exact from aire.rent :root ── */
+      :root {
+        --navy:  #07111f;
+        --navy2: #0d1e33;
+        --navy3: #122035;
+        --blue:  #1a6fe0;
+        --blue2: #2281f7;
+        --blue3: #00aaff;
+        --white: #ffffff;
+        --off:   #f5f8fd;
+        --lgray: #e4ecf7;
+        --tmid:  #3a5278;
+        --tmuted:#6f8aab;
+        --bl: rgba(11,29,54,.07);
+        --ss: 0 1px 4px rgba(7,17,31,.06);
+        --sm: 0 5px 20px rgba(7,17,31,.09);
+        --sl: 0 16px 48px rgba(7,17,31,.13);
+        --r:  10px;
+        --rl: 18px;
+        --rx: 26px;
+      }
 
-      /* ── Inputs ── */
+      /* ── BASE ── */
+      html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+        color: var(--navy);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      .stApp { background: var(--off) !important; }
+      #MainMenu, footer, header { visibility: hidden; }
+      .block-container {
+        padding-top: 1.8rem !important;
+        padding-bottom: 2.5rem !important;
+        max-width: 1160px !important;
+      }
+
+      /* ── TYPOGRAPHY — Outfit for headings, Inter for body ── */
+      h1, h2, h3 {
+        font-family: 'Outfit', sans-serif !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.032em !important;
+        color: var(--navy) !important;
+      }
+
+      /* ── INPUTS ── */
       [data-testid="stTextInput"] input,
       [data-testid="stNumberInput"] input,
-      [data-testid="stTextArea"] textarea {{
-        border-radius: 8px !important; border: 1.5px solid #e2e8f0 !important;
-        font-family: 'Inter', sans-serif !important; font-size: 13px !important;
-        background: #fff !important; color: #0f172a !important;
-        transition: all 0.15s !important;
-      }}
+      [data-testid="stTextArea"] textarea {
+        background: #fff !important;
+        border: 1.5px solid var(--lgray) !important;
+        border-radius: var(--r) !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 13.5px !important;
+        color: var(--navy) !important;
+        box-shadow: var(--ss) !important;
+        transition: border-color 0.15s, box-shadow 0.15s !important;
+      }
       [data-testid="stTextInput"] input:focus,
       [data-testid="stNumberInput"] input:focus,
-      [data-testid="stTextArea"] textarea:focus {{
-        border-color: #1a9fd4 !important;
-        box-shadow: 0 0 0 3px rgba(26,159,212,0.12) !important;
-      }}
-      [data-testid="stSelectbox"] > div > div {{
-        border-radius: 8px !important; border: 1.5px solid #e2e8f0 !important;
-        font-size: 13px !important; background: #fff !important;
-      }}
+      [data-testid="stTextArea"] textarea:focus {
+        border-color: var(--blue) !important;
+        box-shadow: 0 0 0 3px rgba(26,111,224,0.12) !important;
+        outline: none !important;
+      }
+      [data-testid="stTextInput"] input::placeholder,
+      [data-testid="stTextArea"] textarea::placeholder { color: var(--tmuted) !important; }
+      [data-testid="stSelectbox"] > div > div {
+        background: #fff !important;
+        border: 1.5px solid var(--lgray) !important;
+        border-radius: var(--r) !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 13.5px !important;
+        box-shadow: var(--ss) !important;
+      }
 
-      /* ── Buttons ── */
+      /* ── BUTTONS — exact .btn-nav style from website ── */
       .stButton > button[kind="primary"],
       .stButton > button[kind="primaryFormSubmit"],
-      [data-testid="stFormSubmitButton"] > button {{
-        background: #07111f !important;
-        border: none !important; border-radius: 8px !important;
+      [data-testid="stFormSubmitButton"] > button {
+        background: var(--navy) !important;
+        border: none !important;
+        border-radius: var(--r) !important;
         font-family: 'Outfit', sans-serif !important;
-        font-weight: 700 !important; font-size: 13.5px !important;
-        color: #fff !important; letter-spacing: -0.01em !important;
+        font-size: 13.5px !important;
+        font-weight: 700 !important;
+        color: #fff !important;
+        letter-spacing: -0.01em !important;
         box-shadow: 0 2px 8px rgba(7,17,31,0.18) !important;
         transition: all 0.22s !important;
-      }}
+        padding: 0.55rem 1.2rem !important;
+      }
       .stButton > button[kind="primary"]:hover,
-      [data-testid="stFormSubmitButton"] > button:hover {{
-        background: #1a6fe0 !important;
-        box-shadow: 0 5px 16px rgba(26,111,224,0.32) !important;
+      [data-testid="stFormSubmitButton"] > button:hover {
+        background: var(--blue) !important;
         transform: translateY(-1px) !important;
-      }}
-      .stButton > button[kind="secondary"] {{
-        border-radius: 8px !important; border: 1.5px solid #e2e8f0 !important;
-        font-weight: 600 !important; color: #334155 !important;
-        background: #fff !important; transition: all 0.15s !important;
-      }}
-      .stButton > button[kind="secondary"]:hover {{
-        border-color: #1a9fd4 !important; color: #1a9fd4 !important;
-        background: #eff6ff !important;
-      }}
+        box-shadow: 0 5px 16px rgba(26,111,224,0.32) !important;
+        color: #fff !important;
+      }
+      .stButton > button[kind="secondary"] {
+        background: #fff !important;
+        border: 1.5px solid var(--lgray) !important;
+        border-radius: var(--r) !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        color: var(--tmid) !important;
+        box-shadow: var(--ss) !important;
+        transition: all 0.18s !important;
+      }
+      .stButton > button[kind="secondary"]:hover {
+        border-color: var(--blue) !important;
+        color: var(--blue) !important;
+        background: #f0f6ff !important;
+        transform: translateY(-1px) !important;
+      }
 
-      /* ── Tabs ── */
-      [data-testid="stTabs"] [data-baseweb="tab-list"] {{
-        background: #f1f5f9 !important; border-radius: 10px !important;
-        padding: 4px !important; gap: 2px !important;
-        border: 1px solid #e2e8f0 !important;
-      }}
-      [data-testid="stTabs"] [data-baseweb="tab"] {{
-        border-radius: 7px !important; font-size: 13px !important;
-        font-weight: 600 !important; color: #64748b !important;
-        padding: 8px 20px !important; transition: all 0.15s !important;
-      }}
-      [data-testid="stTabs"] [aria-selected="true"] {{
-        background: #fff !important; color: #0d1f3c !important;
-        box-shadow: 0 1px 6px rgba(0,0,0,0.08) !important;
+      /* ── METRIC CARDS — cards with blue top border ── */
+      div[data-testid="metric-container"] {
+        background: #fff !important;
+        border: 1px solid var(--lgray) !important;
+        border-radius: var(--rl) !important;
+        padding: 22px 20px !important;
+        border-top: 3px solid var(--blue) !important;
+        box-shadow: var(--ss) !important;
+        transition: all 0.22s !important;
+      }
+      div[data-testid="metric-container"]:hover {
+        transform: translateY(-3px) !important;
+        box-shadow: var(--sm) !important;
+        border-top-color: var(--blue2) !important;
+      }
+      div[data-testid="metric-container"] label {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 10px !important;
         font-weight: 700 !important;
-      }}
+        text-transform: uppercase !important;
+        letter-spacing: 0.09em !important;
+        color: var(--tmuted) !important;
+      }
+      div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
+        font-family: 'Outfit', sans-serif !important;
+        font-size: 2rem !important;
+        font-weight: 900 !important;
+        letter-spacing: -0.04em !important;
+        color: var(--navy) !important;
+        line-height: 1.1 !important;
+      }
+      div[data-testid="stMetricDelta"] {
+        font-size: 11px !important;
+        font-weight: 600 !important;
+      }
 
-      /* ── Expanders ── */
-      [data-testid="stExpander"] {{
-        border: 1px solid #e2e8f0 !important; border-radius: 10px !important;
-        background: #fff !important; box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
-      }}
+      /* ── CONTAINERS / PANELS ── */
+      [data-testid="stVerticalBlockBorderWrapper"] {
+        background: #fff !important;
+        border: 1px solid var(--lgray) !important;
+        border-radius: var(--rl) !important;
+        box-shadow: var(--ss) !important;
+      }
+      .glass-panel {
+        background: #fff;
+        border-radius: var(--rl);
+        border: 1px solid var(--lgray);
+        padding: 24px;
+        box-shadow: var(--ss);
+        margin-bottom: 18px;
+        transition: box-shadow 0.2s;
+      }
+      .glass-panel:hover { box-shadow: var(--sm); }
+      .panel-title {
+        font-family: 'Inter', sans-serif;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--blue);
+        margin-bottom: 16px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        border-bottom: 1px solid var(--lgray);
+        padding-bottom: 12px;
+      }
 
-      /* ── Dataframes ── */
-      [data-testid="stDataFrame"] {{ border-radius: 8px !important; overflow: hidden !important; }}
+      /* ── TABS — pill style matching website ── */
+      [data-testid="stTabs"] [data-baseweb="tab-list"] {
+        background: var(--off) !important;
+        border-radius: 999px !important;
+        padding: 4px !important;
+        gap: 2px !important;
+        border: 1px solid var(--lgray) !important;
+        display: inline-flex !important;
+      }
+      [data-testid="stTabs"] [data-baseweb="tab"] {
+        border-radius: 999px !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        color: var(--tmid) !important;
+        padding: 8px 20px !important;
+        transition: all 0.15s !important;
+        white-space: nowrap !important;
+      }
+      [data-testid="stTabs"] [aria-selected="true"] {
+        background: #fff !important;
+        color: var(--navy) !important;
+        box-shadow: 0 1px 6px rgba(7,17,31,0.10) !important;
+        font-weight: 700 !important;
+      }
 
-      /* ── Metric cards ── */
-      div[data-testid="metric-container"] {{
-        background: #fff; border: 1px solid #e8eef4; border-radius: 12px;
-        padding: 20px 18px; border-top: 3px solid #1a9fd4;
-        box-shadow: 0 1px 6px rgba(0,0,0,0.05); transition: all 0.2s;
-      }}
-      div[data-testid="metric-container"]:hover {{
-        transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.09);
-        border-top-color: #1b4fa8;
-      }}
-      div[data-testid="metric-container"] label {{
-        color: #64748b !important; font-size: 10px !important;
-        font-weight: 700 !important; text-transform: uppercase; letter-spacing: 0.8px;
-      }}
-      div[data-testid="metric-container"] div[data-testid="stMetricValue"] {{
-        color: #0d1f3c !important; font-size: 28px !important;
-        font-weight: 900 !important; font-family: 'Outfit', sans-serif !important;
-        letter-spacing: -0.03em !important;
-      }}
-      div[data-testid="stMetricDelta"] {{ font-size: 11px !important; font-weight: 600 !important; }}
+      /* ── EXPANDERS ── */
+      [data-testid="stExpander"] {
+        background: #fff !important;
+        border: 1px solid var(--lgray) !important;
+        border-radius: var(--rl) !important;
+        box-shadow: var(--ss) !important;
+        transition: box-shadow 0.2s !important;
+      }
+      [data-testid="stExpander"]:hover { box-shadow: var(--sm) !important; }
 
-      /* ── Glass panels ── */
-      .glass-panel {{
-        background: #fff; border-radius: 12px; border: 1px solid #e8eef4;
-        padding: 24px; box-shadow: 0 1px 6px rgba(0,0,0,0.05); margin-bottom: 18px;
-      }}
-      .panel-title {{
-        font-size: 10px; font-weight: 700; color: #1a6fe0; margin-bottom: 16px;
-        text-transform: uppercase; letter-spacing: 0.14em;
-        border-bottom: 1px solid #e4ecf7; padding-bottom: 12px;
-      }}
+      /* ── DATAFRAMES ── */
+      [data-testid="stDataFrame"] {
+        border-radius: var(--r) !important;
+        overflow: hidden !important;
+        border: 1px solid var(--lgray) !important;
+        box-shadow: var(--ss) !important;
+      }
 
-      /* ── Pro forma table ── */
-      .proforma-table {{ width:100%; border-collapse:collapse; font-size:13px; }}
-      .proforma-table th {{ text-align:right; padding:10px 12px; background:#f8fafc; color:#475569; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; border-bottom:2px solid #e2e8f0; }}
-      .proforma-table th:first-child {{ text-align:left; }}
-      .proforma-table td {{ text-align:right; padding:9px 12px; border-bottom:1px solid #f1f5f9; color:#1e293b; font-family:'JetBrains Mono',monospace; font-size:12px; }}
-      .proforma-table td:first-child {{ text-align:left; font-family:'Inter',sans-serif; font-weight:500; color:#334155; }}
-      .proforma-table tr.noi-row td {{ font-weight:800; background:#eff6ff; color:#1d4ed8; border-top:2px solid #bfdbfe; border-bottom:2px solid #bfdbfe; }}
-      .proforma-table tr.subtotal td {{ background:#f8fafc; font-weight:700; }}
-      .proforma-table tr:hover {{ background:#f8fafc; }}
+      /* ── ALERTS ── */
+      .stSuccess { background: rgba(5,150,105,0.07) !important; border: 1px solid rgba(5,150,105,0.20) !important; border-radius: var(--r) !important; }
+      .stWarning { background: rgba(217,119,6,0.07) !important; border: 1px solid rgba(217,119,6,0.20) !important; border-radius: var(--r) !important; }
+      .stError   { background: rgba(220,38,38,0.07) !important; border: 1px solid rgba(220,38,38,0.20) !important; border-radius: var(--r) !important; }
+      .stInfo    { background: rgba(26,111,224,0.07) !important; border: 1px solid rgba(26,111,224,0.20) !important; border-radius: var(--r) !important; }
 
-      /* ── Grade badges ── */
-      .grade-badge {{ display:inline-block; padding:4px 16px; border-radius:20px; font-weight:800; font-size:22px; }}
-      .grade-a {{ background:#dcfce7; color:#166534; }}
-      .grade-b {{ background:#dbeafe; color:#1e40af; }}
-      .grade-c {{ background:#fef9c3; color:#854d0e; }}
-      .grade-d {{ background:#fee2e2; color:#991b1b; }}
+      /* ── PRO FORMA TABLE ── */
+      .proforma-table { width:100%; border-collapse:collapse; font-size:13px; }
+      .proforma-table th { text-align:right; padding:10px 12px; background:var(--off); color:var(--tmuted); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.09em; border-bottom:2px solid var(--lgray); font-family:'Inter',sans-serif; }
+      .proforma-table th:first-child { text-align:left; }
+      .proforma-table td { text-align:right; padding:9px 12px; border-bottom:1px solid var(--off); color:var(--navy); font-family:'JetBrains Mono',monospace; font-size:12.5px; }
+      .proforma-table td:first-child { text-align:left; font-family:'Inter',sans-serif; font-weight:500; color:var(--tmid); font-size:13px; }
+      .proforma-table tr.noi-row td { font-weight:800; background:#eef5ff; color:var(--blue); border-top:2px solid #c7dcfb; border-bottom:2px solid #c7dcfb; }
+      .proforma-table tr.subtotal td { background:var(--off); font-weight:700; }
+      .proforma-table tr:hover { background:var(--off); }
 
-      /* ── Status pills ── */
-      .tracker-card {{ background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:14px 16px; margin-bottom:10px; border-left:4px solid #1a9fd4; }}
-      .tracker-correct {{ border-left-color:#16a34a; }}
-      .tracker-watch   {{ border-left-color:#d97706; }}
-      .tracker-alert   {{ border-left-color:#dc2626; }}
-      .status-pill   {{ padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700; }}
-      .status-active {{ background:#dbeafe; color:#1d4ed8; }}
-      .status-closed {{ background:#dcfce7; color:#166534; }}
-      .status-watch  {{ background:#fef9c3; color:#92400e; }}
+      /* ── GRADE BADGES ── */
+      .grade-badge { display:inline-block; padding:4px 16px; border-radius:999px; font-weight:800; font-size:22px; letter-spacing:-0.03em; }
+      .grade-a { background:#dcfce7; color:#166534; }
+      .grade-b { background:#dbeafe; color:#1e40af; }
+      .grade-c { background:#fef9c3; color:#854d0e; }
+      .grade-d { background:#fee2e2; color:#991b1b; }
 
-      /* ── Sidebar — slim, dark navy, accent blue ── */
-      [data-testid="stSidebar"] {{
-        background: linear-gradient(180deg,#050d1a 0%,#07111f 40%,#0a1828 100%) !important;
+      /* ── STATUS PILLS ── */
+      .tracker-card { background:#fff; border:1px solid var(--lgray); border-radius:var(--r); padding:14px 16px; margin-bottom:10px; border-left:4px solid var(--blue); box-shadow:var(--ss); }
+      .tracker-correct { border-left-color:#16a34a; }
+      .tracker-watch   { border-left-color:#d97706; }
+      .tracker-alert   { border-left-color:#dc2626; }
+      .status-pill   { padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; font-family:'Inter',sans-serif; }
+      .status-active { background:#dbeafe; color:var(--blue); }
+      .status-closed { background:#dcfce7; color:#166534; }
+      .status-watch  { background:#fef9c3; color:#92400e; }
+
+      /* ── s-chip — exact from website ── */
+      .s-chip {
+        display: inline-block;
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--blue);
+        margin-bottom: 0.5rem;
+        font-family: 'Inter', sans-serif;
+      }
+      .s-h {
+        font-family: 'Outfit', sans-serif;
+        font-weight: 800;
+        letter-spacing: -0.032em;
+        color: var(--navy);
+        line-height: 1.06;
+      }
+      .s-p {
+        font-size: 1rem;
+        color: var(--tmid);
+        line-height: 1.75;
+      }
+
+      /* ── SIDEBAR — dark navy matching website hero ── */
+      [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, var(--navy) 0%, var(--navy2) 100%) !important;
         border-right: 1px solid rgba(26,111,224,0.12) !important;
-      }}
-      [data-testid="stSidebar"] * {{ color: #6b8fae !important; }}
-      [data-testid="stSidebar"] .stButton > button {{
-        width: 100%; text-align: left; background: transparent !important;
+      }
+      [data-testid="stSidebar"] * { color: var(--tmuted) !important; }
+      [data-testid="stSidebar"] .stButton > button {
+        width: 100%; text-align: left;
+        background: transparent !important;
         border: none !important; outline: none !important; box-shadow: none !important;
-        color: #6b8fae !important; padding: 7px 12px; border-radius: 6px;
-        font-size: 12.5px; font-weight: 500; transition: all 0.12s;
-      }}
-      [data-testid="stSidebar"] .stButton > button:hover {{
-        background: rgba(26,111,224,0.08) !important;
-        color: #c8dff0 !important;
-      }}
-      [data-testid="stSidebar"] button {{ border: none !important; box-shadow: none !important; outline: none !important; }}
-      [data-testid="stSidebar"] .stButton {{ margin-bottom: 0px !important; }}
-      [data-testid="collapsedControl"] {{ display: none !important; }}
-      button[data-testid="baseButton-header"] {{ display: none !important; }}
-      section[data-testid="stSidebar"] {{
-        min-width: 210px !important; width: 210px !important;
+        color: #5a7fa0 !important;
+        padding: 7px 12px; border-radius: 7px;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 12.5px; font-weight: 500;
+        transition: all 0.12s;
+        letter-spacing: 0.005em;
+      }
+      [data-testid="stSidebar"] .stButton > button:hover {
+        background: rgba(26,111,224,0.09) !important;
+        color: rgba(255,255,255,0.82) !important;
+      }
+      [data-testid="stSidebar"] button { border: none !important; box-shadow: none !important; outline: none !important; }
+      [data-testid="stSidebar"] .stButton { margin-bottom: 0 !important; }
+      [data-testid="collapsedControl"] { display: none !important; }
+      button[data-testid="baseButton-header"] { display: none !important; }
+      section[data-testid="stSidebar"] {
+        min-width: 218px !important; width: 218px !important;
         transform: translateX(0) !important; visibility: visible !important;
-      }}
+      }
 
-      /* ── Active sidebar nav item highlight ── */
-      .nav-active > button {{
-        background: rgba(26,159,212,0.14) !important;
-        color: #e8f4fd !important;
-        border-left: 3px solid #1a9fd4 !important;
+      /* ── ONBOARDING BANNER ── */
+      .onboard-banner {
+        background: linear-gradient(135deg,#f0f6ff,#f5f8fd);
+        border: 1px solid #c7dcfb;
+        border-left: 5px solid var(--blue);
+        border-radius: var(--rl);
+        padding: 0;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 16px rgba(26,111,224,0.10);
+        overflow: hidden;
+      }
+      .onboard-header {
+        background: linear-gradient(135deg,var(--navy),var(--navy2));
+        padding: 13px 20px;
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .onboard-body { padding: 16px 20px 18px; }
+      .onboard-step  { font-size:9.5px; font-weight:700; color:#7dd3fc; text-transform:uppercase; letter-spacing:1.5px; }
+      .onboard-title { font-family:'Outfit',sans-serif; font-size:15px; font-weight:800; color:#fff; margin-top:2px; letter-spacing:-0.02em; }
+      .onboard-text  { font-size:13px; color:var(--navy2); line-height:1.75; margin-bottom:10px; }
+      .onboard-tip-row { display:flex; align-items:flex-start; gap:8px; background:#e8f0fe; border-radius:8px; padding:10px 14px; }
+      .onboard-tip-text { font-size:12px; color:#1e3a6e; line-height:1.6; }
+      .onboard-badge { display:inline-block; background:rgba(255,255,255,0.14); color:#bae6fd; font-size:9px; font-weight:700; padding:2px 8px; border-radius:4px; text-transform:uppercase; letter-spacing:0.8px; }
+
+      /* ── SCROLLBAR ── */
+      ::-webkit-scrollbar { width: 5px; height: 5px; }
+      ::-webkit-scrollbar-track { background: var(--off); }
+      ::-webkit-scrollbar-thumb { background: var(--lgray); border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: var(--blue); }
+
+      /* ── CHAT ── */
+      .stChatFloatingInputContainer { background: transparent !important; padding: 12px 0 !important; }
+
+      /* ── LINK BUTTONS ── */
+      a[data-testid="stLinkButton"] {
+        background: var(--navy) !important;
+        border-radius: var(--r) !important;
+        font-family: 'Outfit', sans-serif !important;
         font-weight: 700 !important;
-      }}
+        transition: all 0.22s !important;
+      }
+      a[data-testid="stLinkButton"]:hover {
+        background: var(--blue) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 5px 16px rgba(26,111,224,0.32) !important;
+      }
 
-      /* ── Onboarding system ── */
-      .onboard-banner {{
-        background: linear-gradient(135deg,#f0f9ff,#eff6ff);
-        border: 1px solid #bae6fd; border-left: 5px solid #1a9fd4;
-        border-radius: 12px; padding: 0; margin-bottom: 24px;
-        box-shadow: 0 2px 16px rgba(26,159,212,0.10); overflow: hidden;
-      }}
-      .onboard-header {{
-        background: linear-gradient(135deg,#0d1f3c,#1b4fa8);
-        padding: 12px 20px; display: flex; align-items: center;
-        justify-content: space-between;
-      }}
-      .onboard-body {{ padding: 16px 20px 18px; }}
-      .onboard-step  {{ font-size:10px; font-weight:700; color:#7dd3fc; text-transform:uppercase; letter-spacing:1.5px; }}
-      .onboard-title {{ font-size:15px; font-weight:800; color:#fff; margin-top:2px; }}
-      .onboard-text  {{ font-size:13px; color:#1e3a5f; line-height:1.75; margin-bottom:10px; }}
-      .onboard-tip-row {{ display:flex; align-items:flex-start; gap:8px; background:#e0f2fe; border-radius:8px; padding:10px 14px; }}
-      .onboard-tip-icon {{ font-size:14px; flex-shrink:0; margin-top:1px; }}
-      .onboard-tip-text {{ font-size:12px; color:#075985; line-height:1.6; }}
-      .onboard-badge {{ display:inline-block; background:rgba(255,255,255,0.15); color:#bae6fd; font-size:9px; font-weight:700; padding:2px 8px; border-radius:4px; text-transform:uppercase; letter-spacing:1px; }}
-      .onboard-progress {{ display:flex; gap:4px; align-items:center; }}
-      .onboard-dot {{ width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.25); }}
-      .onboard-dot-active {{ background:#1a9fd4; width:18px; border-radius:3px; }}
-
-      /* ── Chat ── */
-      .stChatFloatingInputContainer {{ background: transparent !important; padding: 12px 0 !important; }}
+      /* ── PAIN CARD style — for empty states ── */
+      .pain-card {
+        background: var(--off);
+        border: 1px solid var(--bl);
+        border-radius: var(--rl);
+        padding: 2rem;
+        transition: all 0.3s;
+        position: relative;
+        overflow: hidden;
+      }
+      .pain-card:hover { transform: translateY(-4px); box-shadow: var(--sl); }
+      .pain-num {
+        font-family: 'Outfit', sans-serif;
+        font-size: 3rem;
+        font-weight: 900;
+        letter-spacing: -0.05em;
+        line-height: 1;
+        margin-bottom: 0.4rem;
+        color: var(--navy);
+      }
+      .pain-num span { color: var(--blue); }
     </style>
     """, unsafe_allow_html=True)
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # SECTION 2 │ CLIENTS & STATE
@@ -366,6 +556,51 @@ def init_openai():
 # Keep ai_client as module-level, supabase now fetched fresh per call
 ai_client = init_openai()
 
+@st.cache_resource
+def init_claude():
+    """Initialize Anthropic Claude client."""
+    key = st.secrets.get("ANTHROPIC_API_KEY", "")
+    if not key:
+        return None
+    try:
+        return anthropic.Anthropic(api_key=key)
+    except Exception:
+        return None
+
+claude_client = init_claude()
+
+def call_claude(system: str, user: str, max_tokens: int = 1024, temperature: float = 0.3) -> str:
+    """Call Claude claude-sonnet-4-5. Falls back to GPT-4o if Claude unavailable."""
+    if claude_client:
+        try:
+            msg = claude_client.messages.create(
+                model="claude-sonnet-4-5",
+                max_tokens=max_tokens,
+                temperature=temperature,
+                system=system,
+                messages=[{"role": "user", "content": user}]
+            )
+            return msg.content[0].text
+        except Exception as e:
+            pass  # Fall through to GPT-4o
+    # Fallback to GPT-4o
+    try:
+        r = ai_client.chat.completions.create(
+            model="gpt-4o",
+            max_tokens=max_tokens,
+            temperature=temperature,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user",   "content": user}
+            ]
+        )
+        return r.choices[0].message.content
+    except Exception as e:
+        return f"AI unavailable: {e}"
+
+def claude_available() -> bool:
+    return claude_client is not None
+
 # No demo data — firms start with a clean slate
 
 def init_state():
@@ -382,6 +617,8 @@ def init_state():
         "delivery_memo_text": "",
         "delivery_memo_rec": "APPROVE",
         "stress_results": [],
+        "intel_chat": [],
+        "portfolio_intel_cache": None,
         "onboarding_mode": False,
         "whitelabel": {},
         "lenders": [],
@@ -439,6 +676,7 @@ def db_save(prop: dict, email: str) -> tuple:
             "lon":              float(prop.get("lon",0)),
         }
         sb.table("aire_properties").upsert(rec, on_conflict="firm_key,prop_id").execute()
+        comps_contribute(prop, email, st.session_state.get("settings", {}))
         return True, None
     except Exception as e:
         return False, str(e)
@@ -515,6 +753,278 @@ def db_load_settings(email: str) -> dict:
     except:
         return {}
 
+# ──────────────────────────────────────────────────────────────────────────────
+# SECTION 2C │ AUDIT TRAIL — SYSTEM OF RECORD
+# Every consequential action is logged: who, what, when, old → new.
+# Fire-and-forget: audit logging must NEVER break the product.
+# ──────────────────────────────────────────────────────────────────────────────
+
+def audit_log(event_type: str, entity: str = "", detail: str = "",
+              field: str = None, old_value=None, new_value=None):
+    """Write one immutable audit event for this firm. Silent on any failure."""
+    try:
+        sb, _ = get_supabase()
+        if not sb:
+            return
+        email = st.session_state.get("user_email", "")
+        rec = {
+            "firm_key":   firm_key(email),
+            "user_email": email,
+            "event_type": str(event_type)[:40],
+            "entity":     str(entity)[:160],
+            "detail":     str(detail)[:500],
+            "field":      (str(field)[:80] if field is not None else None),
+            "old_value":  (str(old_value)[:200] if old_value is not None else None),
+            "new_value":  (str(new_value)[:200] if new_value is not None else None),
+            "created_at": datetime.now().isoformat(),
+        }
+        sb.table("aire_audit_log").insert(rec).execute()
+    except Exception:
+        pass
+
+
+def db_load_audit(email: str, limit: int = 500) -> list:
+    """Load this firm's audit events, newest first."""
+    try:
+        sb, _ = get_supabase()
+        if not sb:
+            return []
+        resp = (sb.table("aire_audit_log")
+                  .select("*")
+                  .eq("firm_key", firm_key(email))
+                  .order("created_at", desc=True)
+                  .limit(limit)
+                  .execute())
+        return resp.data or []
+    except Exception:
+        return []
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SECTION 2D │ AIRE COMPS NETWORK — THE DATA FLYWHEEL
+# Every saved deal contributes one anonymized comp. No names, no addresses,
+# no firm identity — banded values + live underwriting assumptions only.
+# After enough firms, this is data nobody else on earth has.
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _band_units(u) -> str:
+    try: u = int(u)
+    except Exception: return "Undisclosed"
+    if u <= 0:   return "Undisclosed"
+    if u <= 50:  return "1–50"
+    if u <= 150: return "51–150"
+    if u <= 300: return "151–300"
+    return "300+"
+
+def _band_price(p) -> str:
+    try: p = float(p)
+    except Exception: return "Undisclosed"
+    if p <= 0:        return "Undisclosed"
+    if p < 10e6:      return "<$10M"
+    if p < 25e6:      return "$10–25M"
+    if p < 50e6:      return "$25–50M"
+    if p < 100e6:     return "$50–100M"
+    return "$100M+"
+
+def _band_vintage(v) -> str:
+    try: v = int(v)
+    except Exception: return "Undisclosed"
+    if v < 1900:  return "Undisclosed"
+    if v < 1980:  return "Pre-1980"
+    return f"{(v // 10) * 10}s"
+
+def _extract_market(address: str):
+    """City + state from a free-text address — never the street. Fallback Undisclosed."""
+    try:
+        parts = [p.strip() for p in str(address or "").split(",") if p.strip()]
+        if len(parts) >= 2:
+            tail = parts[-1]
+            m = re.search(r"\b([A-Z]{2})\b", tail)
+            state = m.group(1) if m else ""
+            city  = parts[-2] if (m or re.search(r"\d{5}", tail)) else parts[-1]
+            city  = re.sub(r"\d", "", city).strip().title()
+            if city and len(city) > 1:
+                return city, state
+    except Exception:
+        pass
+    return "Undisclosed", ""
+
+def comps_contribute(prop: dict, email: str, settings: dict = None):
+    """Fire-and-forget anonymized contribution. Respects the firm's opt-in setting."""
+    try:
+        settings = settings or {}
+        if not settings.get("comps_optin", True):
+            return
+        price = float(prop.get("purchase_price", 0) or 0)
+        noi   = float(prop.get("noi_year1", 0) or 0)
+        if price <= 0 or noi <= 0:
+            return
+        sb, _ = get_supabase()
+        if not sb:
+            return
+        comp_hash = hashlib.sha256(
+            f"{firm_key(email)}::{prop.get('id','')}".encode()
+        ).hexdigest()[:32]
+        market, state = _extract_market(prop.get("address", ""))
+        debt = float(prop.get("debt_amount", 0) or 0)
+        rec = {
+            "comp_hash":        comp_hash,
+            "market":           market,
+            "state":            state,
+            "asset_type":       str(prop.get("type", "Multifamily"))[:40],
+            "units_band":       _band_units(prop.get("units")),
+            "price_band":       _band_price(price),
+            "vintage_band":     _band_vintage(prop.get("vintage")),
+            "entry_cap":        round(noi / price, 5),
+            "underwritten_irr": round(float(prop.get("irr", 0) or 0), 5),
+            "equity_mult":      round(float(prop.get("equity_mult", 0) or 0), 4),
+            "ltv":              round(debt / price, 4) if price > 0 else None,
+            "rent_growth":      round(float(settings.get("rent_growth", 0) or 0), 5),
+            "expense_growth":   round(float(settings.get("expense_growth", 0) or 0), 5),
+            "exit_cap_spread":  round(float(settings.get("exit_cap_spread", 0) or 0), 5),
+            "hold_period":      int(settings.get("hold_period", 5) or 5),
+            "updated_at":       datetime.now().isoformat(),
+        }
+        sb.table("aire_comps").upsert(rec, on_conflict="comp_hash").execute()
+    except Exception:
+        pass
+
+def _comps_stats(rows: list, deal_metrics: dict) -> dict:
+    """Pure aggregation over comp rows. Separated from fetch for testability."""
+    out = {"n": len(rows), "fields": {}}
+    spec = [
+        ("entry_cap",        "Entry Cap",        "pct"),
+        ("underwritten_irr", "Underwritten IRR", "pct"),
+        ("rent_growth",      "Rent Growth",      "pct"),
+        ("ltv",              "LTV",              "pct0"),
+        ("hold_period",      "Hold Period",      "yrs"),
+    ]
+    for key, label, fmt in spec:
+        vals = np.array([float(r[key]) for r in rows
+                         if r.get(key) is not None and float(r[key]) > 0])
+        if len(vals) < 3:
+            continue
+        dv = deal_metrics.get(key)
+        out["fields"][key] = {
+            "label": label, "fmt": fmt,
+            "p25": float(np.percentile(vals, 25)),
+            "p50": float(np.percentile(vals, 50)),
+            "p75": float(np.percentile(vals, 75)),
+            "deal": dv,
+            "pctile": (float((vals < dv).mean() * 100) if dv is not None else None),
+        }
+    return out
+
+def comps_benchmark(deal: dict, settings: dict) -> dict:
+    """Fetch network comps for this asset type; prefer in-state if depth allows."""
+    try:
+        sb, _ = get_supabase()
+        if not sb:
+            return {"n": 0, "fields": {}, "scope": ""}
+        atype = str(deal.get("type", "Multifamily"))
+        resp = (sb.table("aire_comps")
+                  .select("entry_cap,underwritten_irr,rent_growth,ltv,hold_period,state")
+                  .eq("asset_type", atype).limit(2000).execute())
+        rows = resp.data or []
+        _, state = _extract_market(deal.get("address", ""))
+        scope = f"National · {atype}"
+        if state:
+            in_state = [r for r in rows if r.get("state") == state]
+            if len(in_state) >= 8:
+                rows, scope = in_state, f"{state} · {atype}"
+        price = float(deal.get("purchase_price", 0) or 0)
+        noi   = float(deal.get("noi_year1", 0) or 0)
+        debt  = float(deal.get("debt_amount", 0) or 0)
+        dm = {
+            "entry_cap":        (noi / price) if price > 0 else None,
+            "underwritten_irr": float(deal.get("irr", 0) or 0) or None,
+            "rent_growth":      float(settings.get("rent_growth", 0) or 0) or None,
+            "ltv":              (debt / price) if price > 0 else None,
+            "hold_period":      int(settings.get("hold_period", 5) or 5),
+        }
+        out = _comps_stats(rows, dm)
+        out["scope"] = scope
+        return out
+    except Exception:
+        return {"n": 0, "fields": {}, "scope": ""}
+
+def _comps_fmt(v, fmt):
+    if v is None: return "—"
+    if fmt == "pct":  return f"{v:.2%}" if v < 1 else f"{v:.1f}"
+    if fmt == "pct0": return f"{v:.0%}"
+    if fmt == "yrs":  return f"{v:.0f} yr"
+    return f"{v:,.2f}"
+
+def render_comps_panel(deal: dict, settings: dict):
+    """AIRE Comps Network panel — live underwriting benchmarks vs the network."""
+    bm = comps_benchmark(deal, settings)
+    n  = bm.get("n", 0)
+
+    if n < 5 or not bm.get("fields"):
+        st.markdown(f"""
+        <div class="glass-panel" style="background:linear-gradient(135deg,#f5f8fd,#f0f6ff);">
+          <div class="panel-title">AIRE Comps Network — Live Underwriting Benchmarks</div>
+          <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+            <div style="font-family:Outfit,sans-serif;font-size:2.4rem;font-weight:900;
+                        letter-spacing:-0.04em;color:#07111f;line-height:1;">
+              {n}<span style="color:#1a6fe0;font-size:1.1rem;font-weight:800;"> / 5</span>
+            </div>
+            <div style="flex:1;min-width:260px;">
+              <div style="font-size:13px;font-weight:700;color:#07111f;margin-bottom:3px;">
+                Network building — benchmarks unlock at 5 comparable deals
+              </div>
+              <div style="font-size:12px;color:#6f8aab;line-height:1.65;">
+                Every deal saved on AIRE contributes one anonymized comp — banded size and price,
+                entry cap, and live underwriting assumptions. No names, addresses, or firm
+                identities are ever stored. As the network grows, you benchmark against what
+                institutional firms are <b>actually underwriting at right now</b> — data that
+                exists nowhere else.
+              </div>
+            </div>
+          </div>
+        </div>""", unsafe_allow_html=True)
+        return
+
+    rows_html = ""
+    for key, f in bm["fields"].items():
+        deal_s = _comps_fmt(f["deal"], f["fmt"])
+        med_s  = _comps_fmt(f["p50"], f["fmt"])
+        rng_s  = f"{_comps_fmt(f['p25'], f['fmt'])} – {_comps_fmt(f['p75'], f['fmt'])}"
+        if f["pctile"] is not None:
+            p = f["pctile"]
+            pc = "#059669" if 25 <= p <= 75 else ("#d97706" if 10 <= p <= 90 else "#dc2626")
+            chip = (f"<span style='background:{pc}1a;color:{pc};font-size:10px;font-weight:700;"
+                    f"padding:2px 9px;border-radius:999px;white-space:nowrap;'>P{p:.0f} of network</span>")
+        else:
+            chip = ""
+        rows_html += (
+            "<div style='display:grid;grid-template-columns:1.3fr 1fr 1.2fr 1fr;gap:10px;"
+            "align-items:center;padding:9px 0;border-bottom:1px solid #f1f5f9;'>"
+            f"<div style='font-size:12.5px;font-weight:600;color:#3a5278;'>{f['label']}</div>"
+            f"<div style='font-family:JetBrains Mono,monospace;font-size:13px;font-weight:700;color:#07111f;'>{deal_s}</div>"
+            f"<div style='font-family:JetBrains Mono,monospace;font-size:12px;color:#6f8aab;'>{med_s} <span style='font-size:10.5px;'>({rng_s})</span></div>"
+            f"<div style='text-align:right;'>{chip}</div>"
+            "</div>"
+        )
+
+    st.markdown(f"""
+    <div class="glass-panel">
+      <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>AIRE Comps Network — Live Underwriting Benchmarks</span>
+        <span style="font-size:10px;color:#6f8aab;letter-spacing:0.05em;text-transform:none;font-weight:600;">{bm['scope']} · {n} comps</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1.3fr 1fr 1.2fr 1fr;gap:10px;
+                  padding-bottom:7px;border-bottom:2px solid #e4ecf7;font-size:9.5px;
+                  font-weight:700;color:#6f8aab;text-transform:uppercase;letter-spacing:0.09em;">
+        <div>Metric</div><div>This Deal</div><div>Network Median (IQR)</div><div style="text-align:right;">Position</div>
+      </div>
+      {rows_html}
+      <div style="font-size:10px;color:#94a3b8;margin-top:10px;">
+        Anonymized & banded — no firm, asset, or address identities stored · Live assumptions, not closed transactions · Patent Pending
+      </div>
+    </div>""", unsafe_allow_html=True)
+
+
 def load_firm_data():
     """Load saved deals + settings from Supabase. Runs whenever db_loaded is False."""
     email = st.session_state.get("user_email")
@@ -553,17 +1063,204 @@ def fetch_fred_rate():
     except:
         return 6.75
 
-def run_monte_carlo(base_irr=0.182, vol=0.045, n=3000):
-    np.random.seed(42)
-    return np.random.normal(base_irr, vol, n)
+# ──────────────────────────────────────────────────────────────────────────────
+# SECTION 3A │ AIRE QUANTITATIVE ENGINE
+# Real correlated Monte Carlo DCF. Every path is a full year-by-year cash flow.
+# This is the math that survives an analyst in the room.
+# ──────────────────────────────────────────────────────────────────────────────
 
-def build_sensitivity_matrix(base_irr, base_cap):
-    caps = [base_cap - 0.01, base_cap - 0.005, base_cap, base_cap + 0.005, base_cap + 0.01]
+def annual_debt_service(loan: float, rate: float = None, amort_years: int = 30) -> float:
+    """True annual debt service from the standard mortgage constant (monthly amortization)."""
+    if not loan or loan <= 0:
+        return 0.0
+    if rate is None:
+        rate = fetch_fred_rate() / 100.0
+    r_m = rate / 12.0
+    n_m = amort_years * 12
+    if r_m <= 0:
+        return loan / amort_years
+    pmt = loan * r_m / (1.0 - (1.0 + r_m) ** (-n_m))
+    return pmt * 12.0
+
+
+def build_debt_schedule(loan: float, rate: float, hold: int,
+                        amort_years: int = 30, io_years: int = 1) -> dict:
+    """Real monthly-amortizing loan schedule aggregated annually.
+    Returns annual debt service, interest, principal paydown, and ending balance per year."""
+    hold = max(int(hold), 1)
+    if not loan or loan <= 0:
+        z = [0.0] * hold
+        return {"annual_ds": z, "interest": list(z), "principal": list(z),
+                "balance": list(z), "ds_y1": 0.0}
+    r_m = rate / 12.0
+    n_m = amort_years * 12
+    pmt = (loan * r_m / (1.0 - (1.0 + r_m) ** (-n_m))) if r_m > 0 else loan / n_m
+    bal = loan
+    annual_ds, interest, principal, balance = [], [], [], []
+    for y in range(1, hold + 1):
+        ds_y = i_y = p_y = 0.0
+        for _ in range(12):
+            i_m = bal * r_m
+            if y <= io_years:
+                pay, p_m = i_m, 0.0
+            else:
+                pay = pmt
+                p_m = min(pay - i_m, bal)
+            bal -= p_m
+            ds_y += pay; i_y += i_m; p_y += p_m
+        annual_ds.append(ds_y); interest.append(i_y)
+        principal.append(p_y);  balance.append(bal)
+    return {"annual_ds": annual_ds, "interest": interest, "principal": principal,
+            "balance": balance, "ds_y1": annual_ds[0]}
+
+
+def vectorized_irr(cfs: np.ndarray) -> np.ndarray:
+    """Solve IRR for every cash-flow row simultaneously via bisection.
+    NPV is monotonic decreasing in r for conventional CRE cash flows, so
+    70 bisection steps converge to <0.01bp precision across all paths at once."""
+    cfs = np.atleast_2d(np.asarray(cfs, dtype=float))
+    n, T = cfs.shape
+    t  = np.arange(T)
+    lo = np.full(n, -0.95)
+    hi = np.full(n,  4.00)
+    for _ in range(70):
+        mid = (lo + hi) / 2.0
+        npv = (cfs / (1.0 + mid)[:, None] ** t).sum(axis=1)
+        pos = npv > 0
+        lo  = np.where(pos, mid, lo)
+        hi  = np.where(pos, hi, mid)
+    return (lo + hi) / 2.0
+
+
+def run_deterministic_dcf(price: float, noi_y1: float, loan: float, hold: int,
+                          rent_g: float, exp_g: float, exit_cap: float,
+                          rate: float = None, vacancy: float = None,
+                          base_vacancy: float = 0.07, io_years: int = 1,
+                          amort_years: int = 30, closing_pct: float = 0.01,
+                          selling_pct: float = 0.02) -> dict:
+    """One full year-by-year DCF: income/expense growth, real amortization,
+    exit at forward NOI / exit cap less selling costs, loan payoff. Returns true IRR."""
+    if rate is None:
+        rate = fetch_fred_rate() / 100.0
+    hold = max(int(hold), 1)
+    margin = 0.65                       # NOI margin consistent with pro forma builder
+    exp0 = noi_y1 * (1.0 - margin) / margin
+    inc0 = noi_y1 + exp0
+    occ  = ((1.0 - vacancy) / (1.0 - base_vacancy)) if (vacancy is not None and base_vacancy < 1) else 1.0
+    sched  = build_debt_schedule(loan, rate, hold, amort_years, io_years)
+    equity = price - loan + price * closing_pct
+    cfs = [-equity]
+    for y in range(1, hold + 1):
+        inc = inc0 * (1.0 + rent_g) ** y * occ
+        exp = exp0 * (1.0 + exp_g) ** y
+        cf  = (inc - exp) - sched["annual_ds"][y - 1]
+        if y == hold:
+            exit_noi = inc0 * (1.0 + rent_g) ** (y + 1) * occ - exp0 * (1.0 + exp_g) ** (y + 1)
+            exit_val = (exit_noi / exit_cap) * (1.0 - selling_pct) if exit_cap > 0 else 0.0
+            cf += exit_val - sched["balance"][y - 1]
+        cfs.append(cf)
+    irr = float(vectorized_irr(np.array([cfs]))[0])
+    pos = sum(c for c in cfs[1:] if c > 0)
+    em  = pos / equity if equity > 0 else 0.0
+    return {"irr": irr, "em": em, "cfs": cfs, "equity": equity,
+            "ds_y1": sched["ds_y1"], "exit_balance": sched["balance"][-1]}
+
+
+# Economically-grounded correlation structure between simulation drivers:
+#   rent growth ↔ vacancy        −0.55  (strong markets rent up AND fill up)
+#   rent growth ↔ exit cap shift −0.35  (growth markets see cap compression)
+#   rent growth ↔ expense growth +0.45  (inflation links income and costs)
+#   vacancy     ↔ exit cap shift +0.35  (weak demand widens exit caps)
+_AIRE_CORR = np.array([
+    [ 1.00,  0.45, -0.55, -0.35],
+    [ 0.45,  1.00, -0.20, -0.10],
+    [-0.55, -0.20,  1.00,  0.35],
+    [-0.35, -0.10,  0.35,  1.00],
+])
+_AIRE_CHOL = np.linalg.cholesky(_AIRE_CORR)
+
+
+def aire_monte_carlo(deal: dict, settings: dict, n: int = 3000) -> dict:
+    """The real engine. Draws 3,000 correlated scenarios of rent growth, expense
+    growth, vacancy, and exit cap — then runs EVERY path through a full
+    year-by-year DCF with true amortizing debt to produce the IRR distribution.
+    Seeded per-deal so the distribution is stable across reruns but unique per asset."""
+    price = float(deal.get("purchase_price", 0) or 0)
+    noi   = float(deal.get("noi_year1", 0) or 0)
+    loan  = float(deal.get("debt_amount", 0) or 0)
+    if price <= 0 or noi <= 0:
+        return None
+
+    rate  = fetch_fred_rate() / 100.0
+    hold  = max(int(settings.get("hold_period", 5)), 1)
+    rg    = float(settings.get("rent_growth", 0.04))
+    eg    = float(settings.get("expense_growth", 0.03))
+    vac   = float(settings.get("vacancy_rate", 0.07))
+    entry_cap = noi / price
+    exit_base = entry_cap + float(settings.get("exit_cap_spread", 0.0025))
+
+    seed = int(hashlib.sha256(str(deal.get("id", deal.get("name", "x"))).encode()).hexdigest()[:8], 16)
+    rng  = np.random.default_rng(seed)
+
+    # Correlated standard normals → driver distributions
+    Z = rng.standard_normal((n, 4)) @ _AIRE_CHOL.T
+    rg_p  = rg + Z[:, 0] * 0.012                                  # rent growth  σ=120bps
+    eg_p  = np.clip(eg + Z[:, 1] * 0.008, 0.0, None)              # expense grw  σ=80bps
+    vac_p = np.clip(vac + Z[:, 2] * 0.015, 0.02, 0.30)            # vacancy      σ=150bps
+    cap_p = np.clip(exit_base + Z[:, 3] * 0.005, 0.035, None)     # exit cap     σ=50bps
+
+    margin = 0.65
+    exp0 = noi * (1.0 - margin) / margin
+    inc0 = noi + exp0
+    occ  = (1.0 - vac_p) / (1.0 - vac)
+
+    sched  = build_debt_schedule(loan, rate, hold)
+    equity = price - loan + price * 0.01
+
+    cfs = np.zeros((n, hold + 1))
+    cfs[:, 0] = -equity
+    for y in range(1, hold + 1):
+        inc = inc0 * (1.0 + rg_p) ** y * occ
+        exp = exp0 * (1.0 + eg_p) ** y
+        cfs[:, y] = (inc - exp) - sched["annual_ds"][y - 1]
+    exit_noi = inc0 * (1.0 + rg_p) ** (hold + 1) * occ - exp0 * (1.0 + eg_p) ** (hold + 1)
+    exit_val = np.where(cap_p > 0, (exit_noi / cap_p) * 0.98, 0.0)
+    cfs[:, hold] += exit_val - sched["balance"][hold - 1]
+
+    irr = vectorized_irr(cfs)
+    pos = np.clip(cfs[:, 1:], 0, None).sum(axis=1)
+    em  = pos / equity if equity > 0 else np.zeros(n)
+
+    return {
+        "irr_paths": irr, "em_paths": em,
+        "mean": float(irr.mean()),
+        "p5":  float(np.percentile(irr, 5)),
+        "p50": float(np.percentile(irr, 50)),
+        "p95": float(np.percentile(irr, 95)),
+        "loss_prob": float((em < 1.0).mean()),
+        "ds_y1": sched["ds_y1"],
+        "entry_cap": entry_cap, "exit_cap_base": exit_base,
+        "n": n, "hold": hold, "rate": rate,
+    }
+
+
+def aire_sensitivity(deal: dict, settings: dict):
+    """Real IRR sensitivity grid — every cell is a complete DCF run, not a formula."""
+    price = float(deal.get("purchase_price", 0) or 0)
+    noi   = float(deal.get("noi_year1", 0) or 0)
+    loan  = float(deal.get("debt_amount", 0) or 0)
+    rate  = fetch_fred_rate() / 100.0
+    rg    = float(settings.get("rent_growth", 0.04))
+    eg    = float(settings.get("expense_growth", 0.03))
+    entry = noi / price if price > 0 else 0.055
+    base  = entry + float(settings.get("exit_cap_spread", 0.0025))
+    caps  = [base - 0.01, base - 0.005, base, base + 0.005, base + 0.01]
     years = [3, 4, 5, 6, 7]
     m = np.zeros((len(caps), len(years)))
     for i, c in enumerate(caps):
-        for j, y in enumerate(years):
-            m[i][j] = base_irr + (base_cap - c) * 12 - (y - 5) * 0.004
+        for j, h in enumerate(years):
+            m[i][j] = run_deterministic_dcf(price, noi, loan, h, rg, eg,
+                                            max(c, 0.030), rate)["irr"]
     return m, caps, years
 
 def parse_rent_roll(df: pd.DataFrame) -> dict:
@@ -663,7 +1360,9 @@ def build_proforma(noi_y1: float, rent_growth: float, expense_growth: float,
     rows["Effective Gross Income"] = [rows["Gross Potential Rent"][i] + rows["Vacancy & Credit Loss"][i] + rows["Other Income"][i] for i in range(hold)]
     rows["Operating Expenses"] = [-expenses * (1 + expense_growth) ** (y - 1) for y in years]
     rows["Net Operating Income"] = [rows["Effective Gross Income"][i] + rows["Operating Expenses"][i] for i in range(hold)]
-    rows["Debt Service"] = [-debt * 0.065 for _ in years]  # Approx
+    _rate  = fetch_fred_rate() / 100.0
+    _sched = build_debt_schedule(debt, _rate, hold)
+    rows["Debt Service"] = [-_sched["annual_ds"][i] for i in range(hold)]  # Real amortizing schedule
     rows["Net Cash Flow"] = [rows["Net Operating Income"][i] + rows["Debt Service"][i] for i in range(hold)]
     
     return {"years": years, "rows": rows, "noi_list": rows["Net Operating Income"]}
@@ -684,28 +1383,37 @@ def score_deal(irr: float, equity_mult: float, loss_prob: float,
     return round(total), grade
 
 def ai_analyze_deal(deal_context: str, chat_history: list, user_msg: str) -> str:
-    """Call OpenAI to analyze deal with full context."""
-    system = f"""You are AIRE Deal Copilot, an expert institutional CRE underwriter.
-You have deep knowledge of cap rates, IRR, DSCR, multifamily operations, and market analysis.
-You are precise, quantitative, and concise. Always cite specific numbers from the deal context.
+    """Claude-powered deal analysis — institutional CRE intelligence."""
+    system = f"""You are AIRE Intelligence, an elite institutional CRE underwriting AI powered by Claude.
+You combine the analytical rigor of top-tier PE firms (Blackstone, KKR, Starwood) with cutting-edge AI.
+You are precise, quantitative, and direct. Always cite specific numbers from the deal context.
+You identify risks honestly, benchmark against market data, and give actionable recommendations.
 Current deal context: {deal_context}
 Today: {datetime.now().strftime('%B %d, %Y')}
-"""
-    messages = [{"role": "system", "content": system}]
+End every response with a one-line "AIRE Score:" summary."""
+
+    # Build conversation for Claude
+    conversation = []
     for h in chat_history[-8:]:
-        messages.append({"role": h["role"], "content": h["content"]})
-    messages.append({"role": "user", "content": user_msg})
-    
+        conversation.append({"role": h["role"], "content": h["content"]})
+    conversation.append({"role": "user", "content": user_msg})
+
     try:
-        r = ai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=messages,
-            max_tokens=600,
-            temperature=0.3
-        )
+        if claude_client:
+            msg = claude_client.messages.create(
+                model="claude-sonnet-4-5",
+                max_tokens=700,
+                temperature=0.3,
+                system=system,
+                messages=conversation
+            )
+            return msg.content[0].text
+        # Fallback GPT-4o
+        messages = [{"role": "system", "content": system}] + conversation
+        r = ai_client.chat.completions.create(model="gpt-4o", messages=messages, max_tokens=700, temperature=0.3)
         return r.choices[0].message.content
     except Exception as e:
-        return f"AI analysis unavailable: {str(e)}. Please check your OPENAI_API_KEY in secrets."
+        return f"AIRE Intelligence temporarily unavailable: {str(e)}"
 
 def ai_grade_and_track(prop: dict) -> dict:
     """Use AI to project future value, grade, and track accuracy."""
@@ -1092,7 +1800,7 @@ def run_stress_test(props: list, scenarios: dict) -> list:
             cap_shock    = shocks.get("cap_shock", 0)
 
             stressed_noi   = base_noi * (1 + rent_shock) * (1 - vacancy_shock)
-            stressed_ds    = base_debt * (0.065 + rate_shock)
+            stressed_ds    = annual_debt_service(base_debt, fetch_fred_rate()/100.0 + rate_shock)
             stressed_ncf   = stressed_noi - stressed_ds
             stressed_cap   = base_cap + cap_shock
             exit_value     = stressed_noi * 5 / stressed_cap if stressed_cap > 0 else base_price
@@ -1214,7 +1922,7 @@ def model_waterfall(equity, noi_list, exit_value, debt,
     lp_equity = equity * 0.90
     gp_equity = equity * 0.10
     total_equity = equity
-    debt_service = debt * 0.065
+    debt_service = annual_debt_service(debt)
     total_distributions = sum(max(n - debt_service, 0) for n in noi_list)
     total_distributions += max(exit_value - debt, 0)
     return_of_capital = total_equity
@@ -1413,7 +2121,7 @@ def render_login():
 
         _, fc, _ = st.columns([0.1, 0.8, 0.1])
         with fc:
-            st.markdown(f"<div style='font-size:28px;font-weight:900;color:#0d1f3c;margin-bottom:4px;'>Welcome back</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-family:Outfit,sans-serif;font-size:30px;font-weight:900;letter-spacing:-0.04em;color:#07111f;margin-bottom:4px;'>Welcome back</div>", unsafe_allow_html=True)
             st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:24px;'>Sign in to your AIRE account</div>", unsafe_allow_html=True)
 
             with st.form("login_form"):
@@ -1430,6 +2138,7 @@ def render_login():
                             st.session_state.user_email = resp.user.email
                             st.session_state.firm_id    = email.split("@")[1].split(".")[0].upper()
                             st.session_state.db_loaded  = False
+                            audit_log("login", resp.user.email, "Signed in")
                             st.rerun()
                         except Exception:
                             st.error("Access denied. Check your credentials or contact support at aire.rent")
@@ -1471,8 +2180,8 @@ def chart_monte_carlo(sims):
     )
     return fig
 
-def chart_sensitivity(base_irr, base_cap):
-    m, caps, years = build_sensitivity_matrix(base_irr, base_cap)
+def chart_sensitivity(deal, settings):
+    m, caps, years = aire_sensitivity(deal, settings)
     fig = go.Figure(go.Heatmap(
         z=m, x=[f"Yr {y}" for y in years], y=[f"{c*100:.2f}%" for c in caps],
         colorscale=[[0,'#fecaca'],[0.4,'#fef3c7'],[0.6,'#fff'],[0.8,'#d1fae5'],[1,'#bbf7d0']],
@@ -1636,19 +2345,35 @@ def view_dashboard():
     c1.metric("Levered IRR", f"{d['irr']*100:.1f}%", f"+{(d['irr']-0.15)*100:.1f}% vs Target")
     c2.metric("Equity Multiple", f"{d['equity_mult']:.2f}x", "vs 2.0x Target")
     c3.metric("GP Promote IRR", f"{d['gp_irr']*100:.1f}%", "Over Hurdle")
-    c4.metric("Equity Loss Prob.", f"{d['loss_prob']*100:.1f}%", "Low Risk", delta_color="inverse")
+    mc = aire_monte_carlo(d, st.session_state.settings)
+    _lp = mc['loss_prob'] if mc else d['loss_prob']
+    _lp_lbl = "Low Risk" if _lp < 0.08 else ("Moderate Risk" if _lp < 0.18 else "Elevated Risk")
+    c4.metric("Equity Loss Prob.", f"{_lp*100:.1f}%", _lp_lbl, delta_color="inverse")
     c5.metric("Live Debt Rate", f"{rate:.2f}%", "10-Yr T + 200bps")
 
     # Row 2 – Monte Carlo | Sensitivity
     col_mc, col_s = st.columns([1, 1])
     with col_mc:
-        st.markdown('<div class="glass-panel"><div class="panel-title">Monte Carlo Simulation — 3,000 Scenarios</div>', unsafe_allow_html=True)
-        st.plotly_chart(chart_monte_carlo(run_monte_carlo(d['irr'])), use_container_width=True, config={'displayModeBar': False})
+        st.markdown('<div class="glass-panel"><div class="panel-title">Monte Carlo — 3,000 Correlated DCF Paths</div>', unsafe_allow_html=True)
+        if mc:
+            st.plotly_chart(chart_monte_carlo(mc['irr_paths']), use_container_width=True, config={'displayModeBar': False})
+            st.markdown(f"""<div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;color:#3a5278;border-top:1px solid #e4ecf7;padding-top:10px;margin-top:4px;">
+              <span>P5 <b style="color:#dc2626;">{mc['p5']:.1%}</b></span>
+              <span>Median <b style="color:#07111f;">{mc['p50']:.1%}</b></span>
+              <span>Mean <b style="color:#1a6fe0;">{mc['mean']:.1%}</b></span>
+              <span>P95 <b style="color:#059669;">{mc['p95']:.1%}</b></span>
+              <span>Loss <b style="color:#dc2626;">{mc['loss_prob']:.1%}</b></span>
+            </div>""", unsafe_allow_html=True)
+        else:
+            st.info("Add purchase price and NOI to run the simulation engine.")
         st.markdown('</div>', unsafe_allow_html=True)
     with col_s:
-        st.markdown('<div class="glass-panel"><div class="panel-title">IRR Sensitivity: Exit Cap × Hold Period</div>', unsafe_allow_html=True)
-        st.plotly_chart(chart_sensitivity(d['irr'], 0.0525), use_container_width=True, config={'displayModeBar': False})
+        st.markdown('<div class="glass-panel"><div class="panel-title">IRR Sensitivity: Exit Cap × Hold — Full DCF per Cell</div>', unsafe_allow_html=True)
+        st.plotly_chart(chart_sensitivity(d, st.session_state.settings), use_container_width=True, config={'displayModeBar': False})
         st.markdown('</div>', unsafe_allow_html=True)
+
+    # Row 2.5 – AIRE Comps Network benchmark
+    render_comps_panel(d, st.session_state.settings)
 
     # Row 3 – Pro Forma | Capital Stack
     pf = build_proforma(d['noi_year1'], st.session_state.settings['rent_growth'],
@@ -1688,7 +2413,7 @@ def view_dashboard():
 
     with col_cs:
         ltv  = d['debt_amount'] / d['purchase_price'] if d['purchase_price'] else 0
-        dscr = d['noi_year1'] / (d['debt_amount'] * 0.065) if d['debt_amount'] else 0
+        dscr = d['noi_year1'] / annual_debt_service(d['debt_amount']) if d['debt_amount'] else 0
         total_cap = d['debt_amount'] + d['lp_equity'] + d['gp_equity']
         cap_items = [('Senior Debt',d['debt_amount'],'#07111f'),('LP Equity',d['lp_equity'],'#1a6fe0'),('GP Equity',d['gp_equity'],'#60a5fa')]
         ltv_c  = '#dc2626' if ltv  > 0.75 else '#07111f'
@@ -1790,6 +2515,7 @@ def view_pipeline():
                 if st.button("🗑 Remove", key=f"del_{p['id']}", help="Remove this deal"):
                     st.session_state.properties = [x for x in st.session_state.properties if x['id'] != p['id']]
                     db_delete(p['id'], st.session_state.user_email)
+                    audit_log("deal_deleted", p['name'], "Removed from pipeline")
                     if st.session_state.deal_data and st.session_state.deal_data.get('id') == p['id']:
                         remaining = st.session_state.properties
                         st.session_state.deal_data = remaining[0] if remaining else None
@@ -1858,6 +2584,8 @@ def view_pipeline():
             st.session_state.last_save_ok  = ok
             st.session_state.last_save_err = err
             st.session_state.last_save_name = deal_name
+            audit_log("deal_created", deal_name,
+                      f"Added to pipeline — ${purchase_price/1e6:.1f}M {deal_type}, {int(deal_units)} units, Grade {g}")
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -2080,6 +2808,7 @@ Write 2 concise paragraphs. Professional tone. Include specific metrics."""
                     ).choices[0].message.content
                 except:
                     ai_memo = f"This memorandum presents an analysis of {d['name']}, a {d['units']}-unit {d['type']} asset. The investment demonstrates a projected levered IRR of {d['irr']:.1%} with an equity multiple of {d['equity_mult']:.2f}x over the hold period."
+                audit_log("memo_generated", d['name'], f"IC memo generated — recommendation: {rec}")
                 
                 st.session_state['ic_memo_text'] = ai_memo
                 st.session_state['ic_memo_rec']  = rec
@@ -2183,6 +2912,17 @@ def view_settings():
     else:
         st.info("Onboarding mode OFF — platform runs in standard mode.", icon="✅")
 
+    # ── AIRE Comps Network opt-in ──
+    st.markdown("<br>", unsafe_allow_html=True)
+    _optin = st.toggle("Contribute anonymized comps to the AIRE Comps Network",
+        value=st.session_state.settings.get("comps_optin", True),
+        help="Shares banded, fully anonymized deal metrics (entry cap, IRR, assumptions) with the network benchmark. No names, addresses, prices, or firm identities are ever stored. Powers the live benchmarks on your Deal Dashboard.")
+    st.session_state.settings["comps_optin"] = _optin
+    if _optin:
+        st.caption("Your firm benchmarks against the full network and contributes anonymized data points.")
+    else:
+        st.caption("Contribution paused — you can still view network benchmarks built from participating firms.")
+
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<div style='font-size:18px;font-weight:800;color:#e8f0fa;margin-bottom:20px;'>Underwriting Assumptions</div>", unsafe_allow_html=True)
     s = st.session_state.settings.copy()
@@ -2206,8 +2946,16 @@ def view_settings():
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("💾 Save Settings", type="primary", use_container_width=False):
+        _old_settings = dict(st.session_state.settings)
         st.session_state.settings = s
         ok, err = db_save_settings(s, st.session_state.user_email)
+        for _k, _nv in s.items():
+            _ov = _old_settings.get(_k)
+            if _ov != _nv:
+                _fmt = lambda x: f"{x:.4g}" if isinstance(x, float) else str(x)
+                audit_log("settings_change", "Underwriting Settings",
+                          f"{_k.replace('_',' ').title()} updated",
+                          field=_k, old_value=_fmt(_ov), new_value=_fmt(_nv))
         if ok:
             st.success("✅ Settings saved — applied to all models and persisted for your firm.")
         else:
@@ -2240,7 +2988,7 @@ def view_property_detail():
                           d["purchase_price"], d["debt_amount"],
                           st.session_state.settings["hold_period"])
     ltv  = d["debt_amount"] / d["purchase_price"] if d["purchase_price"] else 0
-    dscr = d["noi_year1"] / (d["debt_amount"] * 0.065) if d["debt_amount"] else 0
+    dscr = d["noi_year1"] / annual_debt_service(d["debt_amount"]) if d["debt_amount"] else 0
 
     st.markdown(f"""
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
@@ -2256,7 +3004,8 @@ def view_property_detail():
     c1.metric("Levered IRR",     f"{d['irr']:.1%}")
     c2.metric("Equity Multiple", f"{d['equity_mult']:.2f}x")
     c3.metric("GP IRR",          f"{d['gp_irr']:.1%}")
-    c4.metric("Loss Prob.",      f"{d['loss_prob']:.1%}")
+    mc2 = aire_monte_carlo(d, st.session_state.settings)
+    c4.metric("Loss Prob.",      f"{(mc2['loss_prob'] if mc2 else d['loss_prob']):.1%}")
     c5.metric("LTV",             f"{ltv:.0%}")
     c6.metric("DSCR",            f"{dscr:.2f}x")
 
@@ -2264,12 +3013,20 @@ def view_property_detail():
 
     col_mc, col_s = st.columns(2)
     with col_mc:
-        st.markdown("<div class='glass-panel'><div class='panel-title'>Monte Carlo — 3,000 Scenarios</div>", unsafe_allow_html=True)
-        st.plotly_chart(chart_monte_carlo(run_monte_carlo(d["irr"])), use_container_width=True, config={"displayModeBar": False})
+        st.markdown("<div class='glass-panel'><div class='panel-title'>Monte Carlo — 3,000 Correlated DCF Paths</div>", unsafe_allow_html=True)
+        if mc2:
+            st.plotly_chart(chart_monte_carlo(mc2['irr_paths']), use_container_width=True, config={"displayModeBar": False})
+            st.markdown(f"""<div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;color:#3a5278;border-top:1px solid #e4ecf7;padding-top:10px;margin-top:4px;">
+              <span>P5 <b style="color:#dc2626;">{mc2['p5']:.1%}</b></span>
+              <span>Median <b style="color:#07111f;">{mc2['p50']:.1%}</b></span>
+              <span>Mean <b style="color:#1a6fe0;">{mc2['mean']:.1%}</b></span>
+              <span>P95 <b style="color:#059669;">{mc2['p95']:.1%}</b></span>
+              <span>Loss <b style="color:#dc2626;">{mc2['loss_prob']:.1%}</b></span>
+            </div>""", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
     with col_s:
-        st.markdown("<div class='glass-panel'><div class='panel-title'>IRR Sensitivity: Exit Cap x Hold</div>", unsafe_allow_html=True)
-        st.plotly_chart(chart_sensitivity(d["irr"], 0.0525), use_container_width=True, config={"displayModeBar": False})
+        st.markdown("<div class='glass-panel'><div class='panel-title'>IRR Sensitivity — Full DCF per Cell</div>", unsafe_allow_html=True)
+        st.plotly_chart(chart_sensitivity(d, st.session_state.settings), use_container_width=True, config={"displayModeBar": False})
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='glass-panel'><div class='panel-title'>5-Year Pro Forma</div>", unsafe_allow_html=True)
@@ -2972,6 +3729,8 @@ def view_om_import():
                             "lat": 32.7767, "lon": -96.7970, "notes": f"Imported from OM. Cap rate: {cap:.2f}%"
                         }
                         ok, err = db_save(new_prop, st.session_state.user_email)
+                        audit_log("om_imported", name,
+                                  f"Imported from OM — ${price/1e6:.1f}M {ptype}, {int(units)} units, Grade {g}")
                         st.session_state.properties.append(new_prop)
                         st.session_state.deal_data   = new_prop
                         st.session_state.deal_loaded = True
@@ -3035,7 +3794,7 @@ def view_lp_portal():
         if p["status"] == "closed":
             continue
         cap_rate = p["noi_year1"] / p["purchase_price"] if p["purchase_price"] else 0
-        dscr     = p["noi_year1"] / (p["debt_amount"] * 0.065) if p["debt_amount"] else 0
+        dscr     = p["noi_year1"] / annual_debt_service(p["debt_amount"]) if p["debt_amount"] else 0
         grade_color = {"A":"#166534","B":"#1d4ed8","C":"#92400e","D":"#991b1b"}.get(p["grade"],"#334155")
         grade_bg    = {"A":"#dcfce7","B":"#dbeafe","C":"#fef9c3","D":"#fee2e2"}.get(p["grade"],"#f8fafc")
 
@@ -3190,7 +3949,7 @@ def view_crm():
         cols[i].markdown(f"""
         <div style="background:{bg};border-radius:8px;padding:10px;text-align:center;">
           <div style="font-size:10px;color:{color};font-weight:700;text-transform:uppercase;letter-spacing:.5px;">{stage}</div>
-          <div style="font-size:22px;font-weight:800;color:#0f172a;">{count}</div>
+          <div style="font-family:Outfit,sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.03em;color:#07111f;">{count}</div>
         </div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -3387,22 +4146,22 @@ def view_market_data():
     c1, c2, c3, c4 = st.columns(4)
     c1.markdown(f"""<div style='background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px;'>
       <div style='font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;'>Deal Cap Rate</div>
-      <div style='font-size:22px;font-weight:800;color:#0f172a;'>{deal_cap:.2%}</div>
+      <div style='font-family:Outfit,sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.03em;color:#07111f;'>{deal_cap:.2%}</div>
       <div style='font-size:12px;color:{bps_color};font-weight:600;'>{abs(bps_diff)} bps {bps_dir} market avg</div>
     </div>""", unsafe_allow_html=True)
     c2.markdown(f"""<div style='background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px;'>
       <div style='font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;'>Market Cap ({tier})</div>
-      <div style='font-size:22px;font-weight:800;color:#0f172a;'>{mkt_cap:.2%}</div>
+      <div style='font-family:Outfit,sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.03em;color:#07111f;'>{mkt_cap:.2%}</div>
       <div style='font-size:12px;color:#64748b;'>{ptype} benchmark</div>
     </div>""", unsafe_allow_html=True)
     c3.markdown(f"""<div style='background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px;'>
       <div style='font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;'>Implied Loan Rate</div>
-      <div style='font-size:22px;font-weight:800;color:#0f172a;'>{loan_rate:.2f}%</div>
+      <div style='font-family:Outfit,sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.03em;color:#07111f;'>{loan_rate:.2f}%</div>
       <div style='font-size:12px;color:#64748b;'>10Y T + 200bps</div>
     </div>""", unsafe_allow_html=True)
     c4.markdown(f"""<div style='background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px;'>
       <div style='font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;'>Market Rent Growth</div>
-      <div style='font-size:22px;font-weight:800;color:#0f172a;'>{mkt_rg:.1%}/yr</div>
+      <div style='font-family:Outfit,sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.03em;color:#07111f;'>{mkt_rg:.1%}/yr</div>
       <div style='font-size:12px;color:#64748b;'>{tier} {ptype}</div>
     </div>""", unsafe_allow_html=True)
 
@@ -3664,6 +4423,9 @@ Write 2 concise professional paragraphs. Use specific metrics. No fluff."""
                                                           st.session_state.delivery_memo_rec or rec,
                                                           sender_name)
                             results.append((email, ok, err))
+                    for _re, _rok, _ in results:
+                        if _rok:
+                            audit_log("memo_sent", d['name'], f"IC memo delivered to {_re}")
                     for email, ok, err in results:
                         if ok:
                             st.success(f"✅ Sent to {email}")
@@ -3864,7 +4626,7 @@ def view_version_proforma():
             noi_final  = pf["noi_list"][-1]
             exit_val   = noi_final / exit_cap if exit_cap > 0 else d["purchase_price"]
             equity_in  = d["purchase_price"] - debt
-            ds         = debt * 0.065
+            ds         = annual_debt_service(debt)
             ncf_total  = sum(n - ds for n in pf["noi_list"])
             total_ret  = ncf_total + (exit_val - debt) - equity_in
             est_irr    = max(total_ret / equity_in / hold, -0.5) if equity_in > 0 else 0
@@ -3874,9 +4636,9 @@ def view_version_proforma():
             <div style="background:#eff6ff;border-radius:8px;padding:14px;margin-top:12px;">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                 <div><div style="font-size:10px;color:#1d4ed8;font-weight:700;">EST. IRR</div>
-                     <div style="font-size:22px;font-weight:800;color:#0f172a;">{est_irr:.1%}</div></div>
+                     <div style="font-family:Outfit,sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.03em;color:#07111f;">{est_irr:.1%}</div></div>
                 <div><div style="font-size:10px;color:#1d4ed8;font-weight:700;">EQUITY MULT</div>
-                     <div style="font-size:22px;font-weight:800;color:#0f172a;">{est_em:.2f}x</div></div>
+                     <div style="font-family:Outfit,sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.03em;color:#07111f;">{est_em:.2f}x</div></div>
               </div>
             </div>""", unsafe_allow_html=True)
 
@@ -4509,6 +5271,499 @@ Keep it concise and action-oriented. No fluff."""
                         st.error("Enter a valid email address.")
 
 # ──────────────────────────────────────────────────────────────────────────────
+# AIRE INTELLIGENCE │ CLAUDE-POWERED COMMAND CENTER
+# The most advanced CRE AI system ever built.
+# ──────────────────────────────────────────────────────────────────────────────
+
+def run_claude_deep_analysis(props: list, settings: dict, query: str = "") -> str:
+    """Run a deep portfolio-level analysis using Claude."""
+    if not props:
+        return "No deals in pipeline to analyze."
+
+    portfolio_summary = f"""
+FIRM: {st.session_state.get('firm_id','Unknown')}
+PORTFOLIO SIZE: {len(props)} deals
+TOTAL AUM: ${sum(p['purchase_price'] for p in props)/1e6:.1f}M
+AVG IRR: {sum(p['irr'] for p in props)/len(props):.1%}
+AVG EM: {sum(p['equity_mult'] for p in props)/len(props):.2f}x
+TARGET IRR: {settings.get('target_irr',0.15):.1%}
+MAX LTV: {settings.get('max_ltv',0.70):.0%}
+
+DEALS:
+"""
+    for p in props:
+        cap = p['noi_year1']/p['purchase_price'] if p['purchase_price'] else 0
+        debt = p['debt_amount']
+        ds   = annual_debt_service(debt)
+        dscr = p['noi_year1']/ds if ds > 0 else 0
+        ltv  = debt/p['purchase_price'] if p['purchase_price'] else 0
+        portfolio_summary += f"""
+• {p['name']} | {p['type']} | {p['units']} units | Grade {p['grade']}
+  Price: ${p['purchase_price']/1e6:.1f}M | NOI: ${p['noi_year1']:,.0f} | Cap: {cap:.2%}
+  IRR: {p['irr']:.1%} | EM: {p['equity_mult']:.2f}x | DSCR: {dscr:.2f}x | LTV: {ltv:.0%}
+  Status: {p.get('status','active')}
+"""
+
+    system = """You are AIRE Intelligence, the most advanced institutional CRE analysis AI ever built.
+You are powered by Claude and operate at the level of a Managing Director at a top-5 private equity real estate firm.
+You have deep expertise in: portfolio construction, risk management, capital markets, debt structuring,
+market cycles, LP/GP dynamics, value-add strategies, and institutional underwriting.
+
+Your analysis is characterized by:
+- Brutal honesty about risks — you never sugarcoat
+- Specific, quantitative insights with real numbers
+- Institutional-grade recommendations that would survive IC scrutiny
+- Forward-looking market intelligence
+- Actionable next steps, not generic advice
+
+Format your responses with clear sections. Use specific numbers always.
+You are the competitive edge that separates AIRE from every other CRE tool on the market."""
+
+    user_prompt = f"""Here is the full portfolio data:
+{portfolio_summary}
+
+{'User question: ' + query if query else 'Provide a comprehensive institutional-grade portfolio analysis. Cover: (1) Portfolio health and risk assessment, (2) Deals requiring immediate attention, (3) Capital allocation recommendations, (4) Market timing insights given current rate environment, (5) Three specific actions to take in the next 30 days.'}"""
+
+    try:
+        if claude_client:
+            msg = claude_client.messages.create(
+                model="claude-sonnet-4-5",
+                max_tokens=2000,
+                temperature=0.2,
+                system=system,
+                messages=[{"role": "user", "content": user_prompt}]
+            )
+            return msg.content[0].text
+        # Fallback
+        r = ai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role":"system","content":system},{"role":"user","content":user_prompt}],
+            max_tokens=2000, temperature=0.2
+        )
+        return r.choices[0].message.content
+    except Exception as e:
+        return f"AIRE Intelligence temporarily unavailable: {e}"
+
+
+def run_claude_deal_score(deal: dict, settings: dict, market_data: dict = None) -> str:
+    """Deep single-deal analysis using Claude."""
+    cap = deal['noi_year1']/deal['purchase_price'] if deal['purchase_price'] else 0
+    debt = deal['debt_amount']
+    ds   = annual_debt_service(debt)
+    dscr = deal['noi_year1']/ds if ds > 0 else 0
+    ltv  = debt/deal['purchase_price'] if deal['purchase_price'] else 0
+
+    system = """You are AIRE Intelligence, the world's most advanced institutional CRE underwriting AI.
+You analyze deals with the depth of a 20-year PE veteran and the speed of AI.
+Give a complete, honest, institutional-grade deal analysis. Be specific. Use real numbers.
+Do not hedge excessively. Give a clear verdict."""
+
+    prompt = f"""DEAL ANALYSIS REQUEST
+
+Property: {deal['name']}
+Type: {deal['type']} | Units: {deal['units']} | Vintage: {deal['vintage']}
+Address: {deal.get('address','Not specified')}
+
+FINANCIAL METRICS:
+Purchase Price: ${deal['purchase_price']:,.0f}
+NOI Year 1: ${deal['noi_year1']:,.0f}
+Cap Rate: {cap:.2%}
+Levered IRR: {deal['irr']:.1%}
+Equity Multiple: {deal['equity_mult']:.2f}x
+DSCR: {dscr:.2f}x
+LTV: {ltv:.0%}
+Loss Probability: {deal.get('loss_prob',0.05):.1%}
+Deal Grade: {deal['grade']} ({deal.get('score',50)}/100)
+
+FIRM TARGETS:
+Target IRR: {settings.get('target_irr',0.15):.1%}
+Max LTV: {settings.get('max_ltv',0.70):.0%}
+Min DSCR: {settings.get('min_dscr',1.25):.2f}x
+
+Provide:
+1. EXECUTIVE VERDICT (2 sentences — approve/conditional/pass and why)
+2. FINANCIAL ANALYSIS (IRR quality, DSCR adequacy, cap rate vs market)
+3. TOP 3 RISKS (specific, quantified where possible)
+4. TOP 3 STRENGTHS (specific, quantified where possible)
+5. SENSITIVITY CHECK (what breaks this deal — rate +100bps, NOI -10%, vacancy +5%)
+6. RECOMMENDATION (one clear sentence with conviction)"""
+
+    try:
+        if claude_client:
+            msg = claude_client.messages.create(
+                model="claude-sonnet-4-5",
+                max_tokens=1200,
+                temperature=0.15,
+                system=system,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return msg.content[0].text
+        r = ai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role":"system","content":system},{"role":"user","content":prompt}],
+            max_tokens=1200, temperature=0.15
+        )
+        return r.choices[0].message.content
+    except Exception as e:
+        return f"Analysis unavailable: {e}"
+
+
+def view_aire_intelligence():
+    props    = st.session_state.properties
+    settings = st.session_state.settings
+    d        = st.session_state.deal_data
+
+    # ── Header ──
+    is_claude = claude_available()
+    ai_badge = (
+        "<span style='background:linear-gradient(135deg,#7c3aed,#1a6fe0);color:#fff;"
+        "font-size:9px;font-weight:700;padding:3px 10px;border-radius:4px;"
+        "letter-spacing:1px;text-transform:uppercase;margin-left:8px;'>Powered by Claude</span>"
+        if is_claude else
+        "<span style='background:#f1f5f9;color:#64748b;font-size:9px;font-weight:700;"
+        "padding:3px 10px;border-radius:4px;letter-spacing:1px;'>Add ANTHROPIC_API_KEY to unlock Claude</span>"
+    )
+
+    st.markdown(f"""
+    <div style="margin-bottom:24px;">
+      <div style="font-size:10px;font-weight:700;color:#7c3aed;letter-spacing:0.14em;
+                  text-transform:uppercase;margin-bottom:6px;">AIRE INTELLIGENCE</div>
+      <div style="display:flex;align-items:center;gap:0;">
+        <span style="font-family:Outfit,sans-serif;font-size:clamp(1.6rem,3vw,2.2rem);
+                     font-weight:900;letter-spacing:-0.03em;color:#07111f;">AIRE Intelligence</span>
+        {ai_badge}
+      </div>
+      <div style="font-size:14px;color:#6f8aab;margin-top:4px;">
+        Institutional-grade AI analysis. Portfolio intelligence. Deal verdicts in seconds.
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if not is_claude:
+        st.markdown("""
+        <div style="background:linear-gradient(135deg,#f5f0ff,#eff6ff);border:1px solid #c4b5fd;
+                    border-left:5px solid #7c3aed;border-radius:12px;padding:20px 24px;margin-bottom:24px;">
+          <div style="font-size:14px;font-weight:800;color:#4c1d95;margin-bottom:8px;">
+            Unlock Full Claude Intelligence
+          </div>
+          <div style="font-size:13px;color:#5b21b6;line-height:1.7;margin-bottom:14px;">
+            Add your Anthropic API key to Railway Variables to unlock Claude claude-sonnet-4-5 across the entire platform.
+            Claude delivers superior reasoning, deeper market insights, and more precise deal analysis than any other AI.
+          </div>
+          <div style="background:#fff;border-radius:8px;padding:12px 14px;font-family:monospace;
+                      font-size:12px;color:#4c1d95;border:1px solid #c4b5fd;">
+            ANTHROPIC_API_KEY = sk-ant-xxxxxxxxxxxx
+          </div>
+          <div style="font-size:11px;color:#7c3aed;margin-top:8px;">
+            Get your key at console.anthropic.com → API Keys → Create Key
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    tab1, tab2, tab3 = st.tabs(["Portfolio Intelligence", "Deal Deep Dive", "Ask AIRE"])
+
+    # ── TAB 1: Portfolio Intelligence ──
+    with tab1:
+        st.markdown("<div style='font-size:13px;color:#6f8aab;margin-bottom:16px;'>Claude analyzes your entire pipeline simultaneously — risk across all deals, capital allocation, and actionable recommendations.</div>", unsafe_allow_html=True)
+
+        if not props:
+            st.info("Add deals to your pipeline to run Portfolio Intelligence.")
+        else:
+            col_run, col_info = st.columns([1, 2])
+            with col_run:
+                run_btn = st.button("Run Portfolio Intelligence", type="primary", use_container_width=True)
+            with col_info:
+                st.markdown(f"<div style='font-size:12px;color:#6f8aab;padding-top:8px;'>{len(props)} deals · ${sum(p['purchase_price'] for p in props)/1e6:.1f}M AUM · Avg IRR {sum(p['irr'] for p in props)/len(props):.1%}</div>", unsafe_allow_html=True)
+
+            if run_btn or st.session_state.get("portfolio_intel_cache"):
+                if run_btn:
+                    with st.spinner("Claude is analyzing your entire portfolio..."):
+                        analysis = run_claude_deep_analysis(props, settings)
+                        st.session_state.portfolio_intel_cache = analysis
+                        audit_log("ai_analysis", "Full Portfolio", f"AIRE Intelligence portfolio analysis — {len(props)} deals")
+                else:
+                    analysis = st.session_state.portfolio_intel_cache
+
+                # Render analysis in premium card
+                st.markdown(f"""
+                <div style="background:#fff;border:1px solid #e4ecf7;border-radius:14px;
+                            padding:28px 32px;margin-top:20px;box-shadow:0 2px 16px rgba(7,17,31,0.06);">
+                  <div style="display:flex;justify-content:space-between;align-items:center;
+                              margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid #f1f5f9;">
+                    <div>
+                      <div style="font-size:11px;color:#7c3aed;font-weight:700;text-transform:uppercase;
+                                  letter-spacing:1px;margin-bottom:3px;">PORTFOLIO ANALYSIS</div>
+                      <div style="font-size:14px;font-weight:800;color:#07111f;">AIRE Intelligence Report</div>
+                    </div>
+                    <div style="font-size:11px;color:#94a3b8;">{datetime.now().strftime("%B %d, %Y %H:%M")}</div>
+                  </div>
+                  <div style="font-size:13.5px;color:#1e293b;line-height:1.85;white-space:pre-wrap;">{analysis}</div>
+                  <div style="margin-top:20px;padding-top:14px;border-top:1px solid #f1f5f9;
+                              font-size:10px;color:#94a3b8;">
+                    Generated by AIRE Intelligence · {"Powered by Claude claude-sonnet-4-5" if is_claude else "Powered by GPT-4o"} · Patent Pending
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # ── TAB 2: Deal Deep Dive ──
+    with tab2:
+        st.markdown("<div style='font-size:13px;color:#6f8aab;margin-bottom:16px;'>Full institutional-grade analysis of any deal in your pipeline. Claude goes deeper than any analyst.</div>", unsafe_allow_html=True)
+
+        if not props:
+            st.info("Add deals to your pipeline first.")
+        else:
+            deal_names = [p["name"] for p in props]
+            sel_name   = st.selectbox("Select Deal to Analyze", deal_names, key="intel_deal_sel")
+            sel_deal   = next(p for p in props if p["name"] == sel_name)
+
+            col_m = st.columns(4)
+            cap = sel_deal['noi_year1']/sel_deal['purchase_price'] if sel_deal['purchase_price'] else 0
+            col_m[0].metric("Price",    f"${sel_deal['purchase_price']/1e6:.1f}M")
+            col_m[1].metric("Cap Rate", f"{cap:.2%}")
+            col_m[2].metric("IRR",      f"{sel_deal['irr']:.1%}")
+            col_m[3].metric("Grade",    sel_deal['grade'])
+
+            dive_btn = st.button("Run Deep Dive Analysis", type="primary", use_container_width=False)
+
+            cache_key = f"deep_dive_{sel_deal['id']}"
+            if dive_btn or st.session_state.get(cache_key):
+                if dive_btn:
+                    with st.spinner(f"Claude is performing deep analysis on {sel_name}..."):
+                        analysis = run_claude_deal_score(sel_deal, settings)
+                        st.session_state[cache_key] = analysis
+                        audit_log("ai_analysis", sel_name, "AIRE Intelligence deep dive")
+                else:
+                    analysis = st.session_state[cache_key]
+
+                st.markdown(f"""
+                <div style="background:#fff;border:1px solid #e4ecf7;border-radius:14px;
+                            padding:28px 32px;margin-top:20px;box-shadow:0 2px 16px rgba(7,17,31,0.06);">
+                  <div style="display:flex;justify-content:space-between;align-items:center;
+                              margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid #f1f5f9;">
+                    <div>
+                      <div style="font-size:11px;color:#1a6fe0;font-weight:700;text-transform:uppercase;
+                                  letter-spacing:1px;margin-bottom:3px;">DEAL DEEP DIVE</div>
+                      <div style="font-size:14px;font-weight:800;color:#07111f;">{sel_name}</div>
+                    </div>
+                    <div style="font-size:11px;color:#94a3b8;">{datetime.now().strftime("%B %d, %Y")}</div>
+                  </div>
+                  <div style="font-size:13.5px;color:#1e293b;line-height:1.85;white-space:pre-wrap;">{analysis}</div>
+                  <div style="margin-top:20px;padding-top:14px;border-top:1px solid #f1f5f9;
+                              font-size:10px;color:#94a3b8;">
+                    Generated by AIRE Intelligence · {"Claude claude-sonnet-4-5" if is_claude else "GPT-4o"} · Patent Pending
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # ── TAB 3: Ask AIRE ──
+    with tab3:
+        st.markdown("<div style='font-size:13px;color:#6f8aab;margin-bottom:16px;'>Ask AIRE Intelligence anything. Portfolio questions, market analysis, structuring advice, LP talking points — anything.</div>", unsafe_allow_html=True)
+
+        # Chat history for this tab
+        if "intel_chat" not in st.session_state:
+            st.session_state.intel_chat = []
+
+        # Suggested prompts
+        suggestions = [
+            "Which deal in my pipeline is most at risk if rates rise 100bps?",
+            "Draft LP talking points for my best-performing deal",
+            "What market conditions should make me pause acquisitions?",
+            "How should I structure the waterfall for a value-add multifamily?",
+            "What questions will my IC ask about my riskiest deal?",
+        ]
+
+        if not st.session_state.intel_chat:
+            st.markdown("<div style='font-size:11px;color:#94a3b8;margin-bottom:8px;'>Suggested prompts:</div>", unsafe_allow_html=True)
+            cols = st.columns(2)
+            for i, s in enumerate(suggestions[:4]):
+                if cols[i%2].button(s, key=f"suggest_{i}", use_container_width=True):
+                    st.session_state.intel_chat.append({"role": "user", "content": s})
+                    with st.spinner("AIRE Intelligence is thinking..."):
+                        reply = run_claude_deep_analysis(props, settings, query=s)
+                    st.session_state.intel_chat.append({"role": "assistant", "content": reply})
+                    st.rerun()
+
+        # Render chat
+        for msg in st.session_state.intel_chat:
+            if msg["role"] == "user":
+                st.markdown(f"""
+                <div style="background:#f0f4f8;border-radius:10px;padding:12px 16px;
+                            margin-bottom:8px;max-width:85%;margin-left:auto;">
+                  <div style="font-size:13px;color:#07111f;">{msg["content"]}</div>
+                </div>""", unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style="background:#fff;border:1px solid #e4ecf7;border-radius:10px;
+                            padding:16px 20px;margin-bottom:12px;
+                            border-left:4px solid #7c3aed;">
+                  <div style="font-size:10px;color:#7c3aed;font-weight:700;
+                              text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">
+                    AIRE Intelligence {"· Claude" if is_claude else ""}
+                  </div>
+                  <div style="font-size:13.5px;color:#1e293b;line-height:1.8;white-space:pre-wrap;">{msg["content"]}</div>
+                </div>""", unsafe_allow_html=True)
+
+        # Input
+        user_q = st.text_input("Ask AIRE Intelligence anything...", key="intel_input",
+                               placeholder="e.g. What are the biggest risks in my portfolio right now?")
+        c1, c2 = st.columns([3,1])
+        with c2:
+            send = st.button("Ask", type="primary", use_container_width=True)
+        if (send and user_q) or (user_q and user_q != st.session_state.get("intel_last_q","")):
+            if send and user_q:
+                st.session_state.intel_last_q = user_q
+                st.session_state.intel_chat.append({"role": "user", "content": user_q})
+                with st.spinner("AIRE Intelligence is analyzing..."):
+                    reply = run_claude_deep_analysis(props, settings, query=user_q)
+                st.session_state.intel_chat.append({"role": "assistant", "content": reply})
+                st.rerun()
+
+        if st.session_state.intel_chat:
+            if st.button("Clear conversation", key="clear_intel"):
+                st.session_state.intel_chat = []
+                st.rerun()
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SECTION 6X │ AUDIT TRAIL VIEW
+# ──────────────────────────────────────────────────────────────────────────────
+
+AUDIT_EVENT_STYLES = {
+    "settings_change": ("Settings",     "#1a6fe0", "rgba(26,111,224,0.10)"),
+    "deal_created":    ("Deal Added",   "#059669", "rgba(5,150,105,0.10)"),
+    "deal_updated":    ("Deal Updated", "#d97706", "rgba(217,119,6,0.10)"),
+    "deal_deleted":    ("Deal Removed", "#dc2626", "rgba(220,38,38,0.10)"),
+    "memo_generated":  ("Memo Drafted", "#7c3aed", "rgba(124,58,237,0.10)"),
+    "memo_sent":       ("Memo Sent",    "#7c3aed", "rgba(124,58,237,0.10)"),
+    "om_imported":     ("OM Import",    "#1a9fd4", "rgba(26,159,212,0.10)"),
+    "ai_analysis":     ("AI Analysis",  "#7c3aed", "rgba(124,58,237,0.10)"),
+    "login":           ("Sign In",      "#64748b", "rgba(100,116,139,0.10)"),
+}
+
+def _audit_ts(raw: str) -> str:
+    try:
+        clean = str(raw).replace("Z", "").split("+")[0]
+        dt = datetime.fromisoformat(clean)
+        return dt.strftime("%b %d, %Y · %H:%M")
+    except Exception:
+        return str(raw)[:16]
+
+def view_audit_trail():
+    st.markdown("""<div style="margin-bottom:22px;"><div style="font-size:10px;font-weight:700;color:#1a6fe0;letter-spacing:0.14em;text-transform:uppercase;margin-bottom:6px;">AUDIT TRAIL</div><div style="font-family:Outfit,sans-serif;font-size:1.8rem;font-weight:800;letter-spacing:-0.03em;color:#07111f;">System of Record — Every Action, Logged</div></div>""", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:14px;color:#6f8aab;margin-bottom:20px;'>Immutable, timestamped history of every assumption change, deal event, memo, and analysis run at your firm. Built for IC scrutiny and LP reporting.</div>", unsafe_allow_html=True)
+
+    sb, sb_err = get_supabase()
+    if not sb:
+        st.warning("Connect Supabase to enable the audit trail. Events will begin recording automatically once connected.", icon="🗄️")
+        return
+
+    logs = db_load_audit(st.session_state.user_email, limit=500)
+
+    if not logs:
+        st.markdown("""
+        <div class="pain-card" style="text-align:center;padding:48px 24px;">
+          <div style="font-family:Outfit,sans-serif;font-size:1.2rem;font-weight:800;color:#07111f;margin-bottom:8px;">No events recorded yet</div>
+          <div style="font-size:13px;color:#6f8aab;max-width:440px;margin:0 auto;line-height:1.7;">
+            The audit trail records automatically from this point forward — settings changes,
+            deals added or removed, IC memos generated and delivered, and AI analyses.
+            Make a change anywhere in the platform and it will appear here.
+          </div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:14px;">
+            If you just enabled this feature, run the updated AIRE_setup.sql in Supabase first.
+          </div>
+        </div>""", unsafe_allow_html=True)
+        return
+
+    # ── Summary metrics ──
+    n_settings = sum(1 for l in logs if l.get("event_type") == "settings_change")
+    n_deals    = sum(1 for l in logs if l.get("event_type") == "deal_created")
+    n_memos    = sum(1 for l in logs if l.get("event_type") in ("memo_generated", "memo_sent"))
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Events Logged",    f"{len(logs)}")
+    c2.metric("Settings Changes", f"{n_settings}")
+    c3.metric("Deals Added",      f"{n_deals}")
+    c4.metric("Memo Activity",    f"{n_memos}")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Filters + export ──
+    fc1, fc2, fc3 = st.columns([1.2, 1.6, 0.9])
+    with fc1:
+        types_present = sorted({l.get("event_type", "") for l in logs})
+        type_labels = ["All Events"] + [AUDIT_EVENT_STYLES.get(t, (t, "", ""))[0] for t in types_present]
+        sel_label = st.selectbox("Event Type", type_labels, label_visibility="collapsed")
+    with fc2:
+        q = st.text_input("Search", placeholder="Search deals, users, fields…", label_visibility="collapsed")
+    with fc3:
+        df = pd.DataFrame(logs)
+        cols = [c for c in ["created_at","user_email","event_type","entity","field","old_value","new_value","detail"] if c in df.columns]
+        csv = df[cols].to_csv(index=False).encode() if cols else b""
+        st.download_button("Export CSV", data=csv,
+            file_name=f"AIRE_AuditTrail_{st.session_state.firm_id}_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv", use_container_width=True)
+
+    # Resolve label back to type key
+    sel_type = None
+    if sel_label != "All Events":
+        for t in types_present:
+            if AUDIT_EVENT_STYLES.get(t, (t, "", ""))[0] == sel_label:
+                sel_type = t
+                break
+
+    shown = 0
+    rows_html = ""
+    for l in logs:
+        et = l.get("event_type", "")
+        if sel_type and et != sel_type:
+            continue
+        hay = " ".join(str(l.get(k, "") or "") for k in ("entity","detail","user_email","field","old_value","new_value")).lower()
+        if q and q.lower() not in hay:
+            continue
+        shown += 1
+        if shown > 200:
+            break
+        label, color, bg = AUDIT_EVENT_STYLES.get(et, (et or "Event", "#64748b", "rgba(100,116,139,0.10)"))
+        ts   = _audit_ts(l.get("created_at", ""))
+        user = (l.get("user_email") or "").split("@")[0]
+        ent  = l.get("entity") or ""
+        det  = l.get("detail") or ""
+        change_html = ""
+        if l.get("field"):
+            change_html = (
+                "<div style='font-family:JetBrains Mono,monospace;font-size:11.5px;color:#3a5278;"
+                "background:#f5f8fd;border:1px solid #e4ecf7;border-radius:6px;padding:5px 10px;"
+                "display:inline-block;margin-top:5px;'>"
+                + str(l.get("field"))
+                + ": <span style='color:#94a3b8;text-decoration:line-through;'>" + str(l.get("old_value")) + "</span>"
+                + " &rarr; <span style='color:#1a6fe0;font-weight:700;'>" + str(l.get("new_value")) + "</span></div>"
+            )
+        rows_html += (
+            "<div style='background:#fff;border:1px solid #e4ecf7;border-radius:12px;"
+            "padding:13px 18px;margin-bottom:8px;box-shadow:0 1px 4px rgba(7,17,31,0.06);'>"
+            "<div style='display:flex;justify-content:space-between;align-items:flex-start;gap:14px;'>"
+            "<div style='flex:1;min-width:0;'>"
+            "<div style='display:flex;align-items:center;gap:9px;margin-bottom:3px;flex-wrap:wrap;'>"
+            f"<span style='background:{bg};color:{color};font-size:9.5px;font-weight:700;"
+            f"padding:3px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:0.8px;white-space:nowrap;'>{label}</span>"
+            f"<span style='font-family:Outfit,sans-serif;font-size:13.5px;font-weight:700;color:#07111f;'>{ent}</span>"
+            "</div>"
+            f"<div style='font-size:12.5px;color:#3a5278;line-height:1.55;'>{det}</div>"
+            f"{change_html}"
+            "</div>"
+            "<div style='text-align:right;flex-shrink:0;'>"
+            f"<div style='font-size:11px;color:#94a3b8;font-family:JetBrains Mono,monospace;white-space:nowrap;'>{ts}</div>"
+            f"<div style='font-size:11px;color:#6f8aab;font-weight:600;margin-top:2px;'>{user}</div>"
+            "</div></div></div>"
+        )
+
+    if shown == 0:
+        st.info("No events match your filter.")
+    else:
+        st.markdown(rows_html, unsafe_allow_html=True)
+        if shown >= 200:
+            st.caption("Showing most recent 200 matching events. Export CSV for the complete record.")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # SECTION 7 │ SIDEBAR & ROUTER
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -4520,11 +5775,12 @@ NAV_SECTIONS = [
         "color": "#1a9fd4",   # sky blue
         "bg":    "rgba(26,159,212,0.10)",
         "items": [
-            ("Deal Dashboard",  "Dashboard"),
-            ("AI Data Room",    "DataRoom"),
-            ("AI Tracker",      "AITracker"),
-            ("AI Deal Scorer",  "AIScorer"),
-            ("Market Data",     "MarketData"),
+            ("Deal Dashboard",      "Dashboard"),
+            ("AIRE Intelligence",   "Intelligence"),
+            ("AI Data Room",        "DataRoom"),
+            ("AI Tracker",          "AITracker"),
+            ("AI Deal Scorer",      "AIScorer"),
+            ("Market Data",         "MarketData"),
         ],
     },
     {
@@ -4569,6 +5825,7 @@ NAV_SECTIONS = [
             ("Team",             "Team"),
             ("White-Label",      "WhiteLabel"),
             ("Lender Database",  "LenderDB"),
+            ("Audit Trail",      "AuditTrail"),
             ("Settings",         "Settings"),
         ],
     },
@@ -4769,7 +6026,9 @@ def main():
     elif v == "Team":           view_team()
     elif v == "WhiteLabel":     view_whitelabel()
     elif v == "LenderDB":       view_lender_db()
+    elif v == "AuditTrail":     view_audit_trail()
     elif v == "BrokerEmails":   view_broker_emails()
+    elif v == "Intelligence":    view_aire_intelligence()
 
 if __name__ == "__main__":
     main()
