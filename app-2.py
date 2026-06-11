@@ -2844,7 +2844,7 @@ Write 2 concise paragraphs. Professional tone. Include specific metrics."""
         rec_color = {"APPROVE":"#166534","APPROVE WITH CONDITIONS":"#92400e","DECLINE":"#991b1b"}.get(rec_text,"#334155")
         rec_bg    = {"APPROVE":"#dcfce7","APPROVE WITH CONDITIONS":"#fef9c3","DECLINE":"#fee2e2"}.get(rec_text,"#f8fafc")
         
-        st.markdown(f"""
+        _memo_preview_html = f"""
         <div style="font-family:'Inter',sans-serif; color:#0f172a;">
           <div style="display:flex; justify-content:space-between; border-bottom:2px solid #0f172a; padding-bottom:16px; margin-bottom:20px;">
             <div><div style="font-size:28px; font-weight:900; letter-spacing:-1px;">AIRE</div>
@@ -2887,7 +2887,8 @@ Write 2 concise paragraphs. Professional tone. Include specific metrics."""
             <div style="font-size:22px; font-weight:900; color:{rec_color};">{rec_text}</div>
           </div>
         </div>
-        """, unsafe_allow_html=True)
+        """
+        st.markdown("".join(_l.strip() for _l in _memo_preview_html.splitlines()), unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -4965,7 +4966,9 @@ def view_whitelabel():
         """
 
         st.markdown("<div style='font-size:13px;font-weight:700;color:#0f172a;margin-bottom:12px;'>📄 Memo Preview</div>", unsafe_allow_html=True)
-        st.markdown(preview_html, unsafe_allow_html=True)
+        # Flatten: indented multi-line HTML after blank lines gets parsed as a
+        # Markdown code block — strip per-line indentation so it renders as HTML.
+        st.markdown("".join(_l.strip() for _l in preview_html.splitlines()), unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
