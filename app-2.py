@@ -2092,6 +2092,158 @@ def aire_grade_deal(deal: dict, settings: dict, mc: dict = None) -> dict:
         "drivers": drivers, "drags": drags,
     }
 # ──────────────────────────────────────────────────────────────────────────────
+# SECTION 3E-2 │ ASSUMPTION PLAUSIBILITY
+# _verify_all() proves the MATH is right. These ask whether the INPUTS are
+# defensible — the three ways a CRE model is most often made to look good, and
+# the three things an acquisitions professional checks by hand on every deal.
+# ──────────────────────────────────────────────────────────────────────────────
+
+def aire_assumption_checks(deal: dict, settings: dict) -> list:
+    """Returns [{level, title, detail}] where level is 'flag' | 'watch' | 'ok'."""
+    out = []
+    price = float(deal.get("purchase_price", 0) or 0)
+    noi   = float(deal.get("noi_year1", 0) or 0)
+    loan  = float(deal.get("debt_amount", 0) or 0)
+    units = int(deal.get("units", 0) or 0)
+    if price <= 0 or noi <= 0:
+        return out
+
+    rate   = fetch_fred_rate() / 100.0
+    entry  = noi / price
+    spread = float(settings.get("exit_cap_spread", 0.0025) or 0.0)
+    exitc  = entry + spread
+    hold   = int(settings.get("hold_period", 5) or 5)
+    rg     = float(settings.get("rent_growth", 0.04))
+    eg     = float(settings.get("expense_growth", 0.03))
+
+    # ── 1 · Exit cap discipline ──
+    if spread < 0:
+        impact = ""
+        try:
+            aggr = run_deterministic_dcf(price, noi, loan, hold, rg, eg, max(exitc, 0.030), rate)["irr"]
+            neut = run_deterministic_dcf(price, noi, loan, hold, rg, eg, max(entry + 0.0025, 0.030), rate)["irr"]
+            impact = f" This assumption adds {(aggr - neut) * 100:.1f} pts of levered IRR versus a +25bp exit."
+        except Exception:
+            pass
+        out.append({"level": "flag", "title": "Exit cap is tighter than going-in",
+                    "detail": f"Exit {exitc:.2%} vs entry {entry:.2%} ({spread*10000:+.0f} bps). "
+                              f"Underwriting a sale at a lower cap than you bought at assumes market "
+                              f"improvement and requires a stated basis.{impact}"})
+    elif abs(spread) < 1e-9:
+        out.append({"level": "watch", "title": "Exit cap equals going-in",
+                    "detail": f"Exit and entry both {entry:.2%}. Flat is defensible, but it is an "
+                              f"assumption rather than a neutral default — state the basis in the memo."})
+    else:
+        out.append({"level": "ok", "title": "Exit cap discipline",
+                    "detail": f"Exit {exitc:.2%} vs entry {entry:.2%} ({spread*10000:+.0f} bps) — "
+                              f"conservative direction."})
+
+    # ── 2 · Operating margin plausibility ──
+    vac  = float(settings.get("vacancy_rate", 0.07))
+    rent = float(deal.get("avg_monthly_rent", 0) or 0)
+    if units > 0 and rent > 0:
+        egi    = units * rent * 12.0 * (1.0 - vac)
+        margin = (noi / egi) if egi > 0 else 0.0
+        # Calibration note: a 15% expense understatement moves this margin only
+        # ~4.8 pts, which stays inside any plausible band. The band catches gross
+        # manipulation, not subtle. Thresholds are set to avoid false positives on
+        # rough inputs; the identity check below is what would close the gap.
+        if margin > 0.72:
+            out.append({"level": "flag", "title": "Operating margin is implausibly high",
+                        "detail": f"Implied NOI margin {margin:.0%} on ${egi:,.0f} effective gross income "
+                                  f"(${rent:,.0f}/unit/month, {vac:.0%} vacancy). Stabilised multifamily "
+                                  f"runs 55–65%. Above 72% means expenses are materially understated, "
+                                  f"a tax reassessment is missing, or the rent figure is wrong."})
+        elif margin > 0.66:
+            out.append({"level": "watch", "title": "Operating margin is on the high side",
+                        "detail": f"Implied NOI margin {margin:.0%} on ${egi:,.0f} EGI — above the 55–65% "
+                                  f"band but not implausible. Confirm the expense base includes taxes at "
+                                  f"the reassessed basis, insurance at current quotes, and a real "
+                                  f"replacement reserve."})
+        elif margin < 0.45:
+            out.append({"level": "watch", "title": "Operating margin is unusually low",
+                        "detail": f"Implied NOI margin {margin:.0%}. Below 45% is uncommon for "
+                                  f"stabilised multifamily — check for non-recurring items in the "
+                                  f"expense base."})
+        else:
+            out.append({"level": "ok", "title": "Operating margin is inside the band",
+                        "detail": f"Implied NOI margin {margin:.0%} on ${egi:,.0f} EGI — inside 55–65% for "
+                                  f"stabilised multifamily. Note this is a band test, not a reconciliation: "
+                                  f"it catches a materially understated expense base, not a marginal one. "
+                                  f"Upload a T-12 to reconcile NOI against actual line items."})
+    else:
+        out.append({"level": "watch", "title": "Operating margin cannot be checked",
+                    "detail": "No rent roll or average-rent figure was supplied, so AIRE cannot test "
+                              "whether the expense load behind this NOI is plausible. The simulation "
+                              "assumes a 65% NOI margin. Understated expenses would raise IRR and DSCR "
+                              "together and nothing here would catch it. Upload a T-12 to close this gap."})
+
+    # ── 3 · Which constraint actually binds the loan ──
+    if loan > 0:
+        min_ds = float(settings.get("min_dscr", 1.25) or 1.25)
+        max_lv = float(settings.get("max_ltv", 0.70) or 0.70)
+        k = annual_debt_service(1.0, rate)          # debt service per $1 of loan
+        cap_ltv  = price * max_lv
+        cap_dscr = (noi / (min_ds * k)) if k > 0 else cap_ltv
+        binding  = "DSCR" if cap_dscr < cap_ltv else "LTV"
+        headroom = min(cap_ltv, cap_dscr) - loan
+        if headroom < 0:
+            out.append({"level": "flag", "title": f"Debt exceeds {binding} capacity",
+                        "detail": f"Loan ${loan:,.0f} is ${-headroom:,.0f} above the {binding} limit at "
+                                  f"today's {rate:.2%} rate. The LTV test allows ${cap_ltv:,.0f} "
+                                  f"({loan/price:.0%} vs {max_lv:.0%} policy) and the DSCR test allows "
+                                  f"${cap_dscr:,.0f} at {min_ds:.2f}x. {binding} binds first, and it is "
+                                  f"breached — LTV alone would have let this pass."})
+        else:
+            out.append({"level": "ok", "title": f"{binding} is the binding constraint",
+                        "detail": f"Loan ${loan:,.0f} with ${headroom:,.0f} of headroom. LTV allows "
+                                  f"${cap_ltv:,.0f}; DSCR allows ${cap_dscr:,.0f} at {rate:.2%}. "
+                                  f"{binding} binds first."})
+    return out
+
+
+def render_assumption_panel(deal: dict, settings: dict):
+    """Assumption checks, rendered as flags beside the risk grade."""
+    checks = aire_assumption_checks(deal, settings)
+    if not checks:
+        return checks
+    STYLE = {"flag":  ("#991b1b", "#fee2e2", "#dc2626", "FLAG"),
+             "watch": ("#92400e", "#fef9c3", "#d97706", "WATCH"),
+             "ok":    ("#166534", "#dcfce7", "#16a34a", "OK")}
+    n_flag  = sum(1 for c in checks if c["level"] == "flag")
+    n_watch = sum(1 for c in checks if c["level"] == "watch")
+    if n_flag:
+        summary = f"{n_flag} assumption{'s' if n_flag > 1 else ''} needs a stated basis before IC"
+    elif n_watch:
+        summary = f"{n_watch} assumption{'s' if n_watch > 1 else ''} unverified"
+    else:
+        summary = "All three assumption checks clear"
+    rows = ""
+    for c in checks:
+        col, bg, bar, tag = STYLE[c["level"]]
+        rows += (
+            f"<div style='border-left:3px solid {bar};background:{bg}33;border-radius:0 8px 8px 0;"
+            f"padding:11px 14px;margin-bottom:8px;'>"
+            f"<div style='display:flex;align-items:center;gap:9px;margin-bottom:4px;'>"
+            f"<span style='background:{bg};color:{col};font-size:9.5px;font-weight:800;padding:2px 8px;"
+            f"border-radius:4px;letter-spacing:0.07em;'>{tag}</span>"
+            f"<span style='font-size:13px;font-weight:700;color:#07111f;'>{c['title']}</span></div>"
+            f"<div style='font-size:12px;color:#3a5278;line-height:1.55;'>{c['detail']}</div></div>")
+    st.markdown(
+        "<div class='glass-panel'>"
+        "<div class='panel-title'>Assumption Checks — Are the Inputs Defensible?</div>"
+        f"<div style='font-size:12px;color:#6f8aab;margin:-6px 0 14px;'>{summary}</div>"
+        + rows +
+        "<div style='border-top:1px solid #e4ecf7;padding-top:9px;margin-top:4px;"
+        "font-size:10px;color:#94a3b8;line-height:1.5;'>"
+        "Separate from the verification certificate. The certificate proves the <b>math</b> is "
+        "correct; these test whether the <b>assumptions</b> are defensible. Different problems."
+        "</div></div>",
+        unsafe_allow_html=True)
+    return checks
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # SECTION 3F │ SENSITIVITY ATTRIBUTION
 # Decomposes IRR variance across the four correlated drivers. Answers the
 # question every IC asks and no other CRE tool can: "what is actually driving
@@ -3514,6 +3666,9 @@ def view_dashboard():
 
     # Row 2.4 – AIRE Risk Grade (explainable multi-factor model)
     render_grade_panel(d, st.session_state.settings, mc)
+
+    # Row 2.45 – Assumption plausibility (inputs, not math)
+    render_assumption_panel(d, st.session_state.settings)
 
     # The Firm Ledger — decision capture (pursue / pass / revisit + reason)
     render_decision_panel(d)
