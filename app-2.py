@@ -305,7 +305,16 @@ def inject_css():
       }
       div[data-testid="stMetricDelta"] {
         font-size: 11px !important;
-        font-weight: 600 !important;
+        font-weight: 500 !important;
+        color: var(--tmuted) !important;
+        letter-spacing: 0.005em !important;
+      }
+      div[data-testid="stMetricDelta"] svg { display: none !important; }
+      div[data-testid="metric-container"] { border-top-width: 1px !important; }
+      div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
+        font-weight: 700 !important;
+        font-size: 1.85rem !important;
+        font-variant-numeric: tabular-nums !important;
       }
 
       /* ── CONTAINERS / PANELS ── */
@@ -912,7 +921,8 @@ def audit_log(event_type: str, entity: str = "", detail: str = "",
             "field":      (str(field)[:80] if field is not None else None),
             "old_value":  (str(old_value)[:200] if old_value is not None else None),
             "new_value":  (str(new_value)[:200] if new_value is not None else None),
-            "created_at": datetime.now().isoformat(),
+            # created_at intentionally omitted — Postgres owns it
+            # (aire_audit_log.created_at is timestamptz DEFAULT now()).
         }
         sb.table("aire_audit_log").insert(rec).execute()
     except Exception:
@@ -3267,13 +3277,7 @@ def render_login():
                         except Exception:
                             st.error("Access denied. Check your credentials or contact support at aire.rent")
                     else:
-                        if email and password:
-                            st.session_state.user_email = email
-                            st.session_state.firm_id    = email.split("@")[1].split(".")[0].upper() if "@" in email else "DEMO"
-                            st.session_state.db_loaded  = False
-                            st.rerun()
-                        else:
-                            st.error("Please enter your email and password.")
+                        st.error("Sign-in is temporarily unavailable. Please try again in a moment.")
 
             st.markdown(
                 "<div style='display:flex;align-items:center;justify-content:center;gap:8px;margin-top:18px;'>"
@@ -3475,14 +3479,17 @@ def view_dashboard():
     # KPI row
     c1,c2,c3,c4,c5 = st.columns(5)
     rate = fetch_fred_rate()
-    c1.metric("Levered IRR", f"{d['irr']*100:.1f}%", f"+{(d['irr']-0.15)*100:.1f}% vs Target")
-    c2.metric("Equity Multiple", f"{d['equity_mult']:.2f}x", "vs 2.0x Target")
-    c3.metric("GP Promote IRR", f"{d['gp_irr']*100:.1f}%", "Over Hurdle")
+    _tgt = float(st.session_state.settings.get("target_irr", 0.15) or 0.15)
+    c1.metric("Levered IRR", f"{d['irr']*100:.1f}%",
+              f"{(d['irr']-_tgt)*100:+.1f} pts vs {_tgt:.0%} target")
+    c2.metric("Equity Multiple", f"{d['equity_mult']:.2f}x", "target 2.00x")
+    c3.metric("GP Promote IRR", f"{d['gp_irr']*100:.1f}%",
+              "over hurdle" if d['gp_irr'] > _tgt else "under hurdle")
     mc = aire_monte_carlo(d, st.session_state.settings)
     _lp = mc['loss_prob'] if mc else d['loss_prob']
     _lp_lbl = "Low Risk" if _lp < 0.08 else ("Moderate Risk" if _lp < 0.18 else "Elevated Risk")
     c4.metric("Equity Loss Prob.", f"{_lp*100:.1f}%", _lp_lbl, delta_color="inverse")
-    c5.metric("Live Debt Rate", f"{rate:.2f}%", "10-Yr T + 200bps")
+    c5.metric("Live Debt Rate", f"{rate:.2f}%", "10-Yr T + 200bps", delta_color="off")
 
     # Row 2 – Monte Carlo | Sensitivity
     col_mc, col_s = st.columns([1, 1])
@@ -3732,7 +3739,9 @@ def view_pipeline():
         broker_shop    = cB2.text_input("Brokerage (optional)", placeholder="CBRE / JLL / Marcus & Millichap")
         guidance_price = cB3.number_input("Guidance / Whisper ($, optional)", min_value=0, value=0, step=100000)
         submitted = st.form_submit_button("Add Deal to Pipeline", type="primary", use_container_width=True)
-        if submitted and deal_name:
+        if submitted and not (purchase_price > 0 and noi_y1 > 0):
+            st.error("Purchase price and Year-1 NOI must both be greater than zero to underwrite this deal.")
+        elif submitted and deal_name:
             debt  = purchase_price * ltv
             lp_eq = purchase_price * (1 - ltv) * 0.90
             gp_eq = purchase_price * (1 - ltv) * 0.10
@@ -3918,7 +3927,7 @@ def view_ai_tracker():
                   <table style="width:100%; font-size:13px; border-collapse:collapse;">
                     <tr><td style="color:#64748b; padding:4px 0;">Purchase Price</td><td style="text-align:right; font-family:'JetBrains Mono'; font-weight:700;">${p['purchase_price']/1e6:.1f}M</td></tr>
                     <tr><td style="color:#64748b; padding:4px 0;">NOI Year 1</td><td style="text-align:right; font-family:'JetBrains Mono'; font-weight:700;">${p['noi_year1']:,.0f}</td></tr>
-                    <tr><td style="color:#64748b; padding:4px 0;">Cap Rate (Entry)</td><td style="text-align:right; font-family:'JetBrains Mono'; font-weight:700;">{p['noi_year1']/p['purchase_price']:.2%}</td></tr>
+                    <tr><td style="color:#64748b; padding:4px 0;">Cap Rate (Entry)</td><td style="text-align:right; font-family:'JetBrains Mono'; font-weight:700;">{(p['noi_year1']/p['purchase_price']) if p['purchase_price'] else 0:.2%}</td></tr>
                     <tr><td style="color:#64748b; padding:4px 0;">Equity Multiple</td><td style="text-align:right; font-family:'JetBrains Mono'; font-weight:700;">{p['equity_mult']:.2f}x</td></tr>
                     <tr><td style="color:#64748b; padding:4px 0;">Acquisition Date</td><td style="text-align:right;">{p.get('acquisition_date','—')}</td></tr>
                   </table>
@@ -3977,6 +3986,10 @@ def view_ic_memo():
     st.markdown('<div style="font-size:22px; font-weight:800; color:#0f172a; margin-bottom:20px;">Investment Committee Memo Generator</div>', unsafe_allow_html=True)
     d = st.session_state.deal_data
     
+    if not d:
+        st.info("Load a deal from Master Pipeline to generate an IC memo.")
+        return
+
     col_cfg, col_prev = st.columns([1, 2])
     with col_cfg:
         st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
@@ -4903,6 +4916,10 @@ def view_om_import():
                 if st.button("➕ Add to Pipeline", type="primary", use_container_width=True):
                     if not name:
                         st.error("Property name is required.")
+                    elif not (price > 0 and noi > 0):
+                        st.error("AIRE could not read an asking price or Year-1 NOI from this document. "
+                                 "Enter both above before adding the deal — every downstream model needs them. "
+                                 "For a securitized loan, the appraised value at securitization is the correct basis.")
                     else:
                         import time as _t
                         ltv   = st.session_state.settings["max_ltv"]
@@ -7183,12 +7200,19 @@ def view_scenarios():
         s["vacancy_rate"]    = max(0.02, base.get("vacancy_rate", 0.07) + p["vacancy_rate"])
         s["exit_cap_spread"] = base.get("exit_cap_spread", 0.0025) + p["exit_cap_spread"]
         mc = aire_monte_carlo(d, s)
+        if mc is None:
+            continue
         g  = aire_grade_deal(d, s, mc)
         # Rate shock hits debt service directly
         ds = annual_debt_service(d.get("debt_amount", 0), fetch_fred_rate()/100.0 + p["rate_shock"])
         dscr = (d["noi_year1"] / ds) if ds > 0 else 99.0
         results.append({"name": name, "mc": mc, "g": g, "dscr": dscr,
                         "rate": fetch_fred_rate()/100.0 + p["rate_shock"]})
+
+    if not results:
+        st.warning("This deal cannot be simulated — purchase price and Year-1 NOI must both be "
+                   "greater than zero. Correct them in Master Pipeline, then re-run scenarios.")
+        return
 
     # ── Side-by-side cards ──
     cols = st.columns(len(results))
