@@ -40,6 +40,12 @@ try:
 except ImportError:
     _install("openpyxl")
 
+try:
+    import reportlab
+except ImportError:
+    _install("reportlab")
+    import reportlab
+
 import os
 import time
 import json
@@ -310,6 +316,9 @@ def inject_css():
         letter-spacing: 0.005em !important;
       }
       div[data-testid="stMetricDelta"] svg { display: none !important; }
+      /* Run A #1 — suppress Streamlit's "Press Enter to submit form" hint */
+      [data-testid="InputInstructions"],
+      [data-testid="stWidgetInstructions"] { display: none !important; }
       div[data-testid="metric-container"] { border-top-width: 1px !important; }
       div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
         font-weight: 700 !important;
@@ -2116,7 +2125,32 @@ def aire_assumption_checks(deal: dict, settings: dict) -> list:
     rg     = float(settings.get("rent_growth", 0.04))
     eg     = float(settings.get("expense_growth", 0.03))
 
-    # ── 1 · Exit cap discipline ──
+    # ── 1 · Exit cap discipline · state the basis, then test it ──
+    #        Run A #4: "exit cap has explanation, but it's too thin to defend."
+    try:
+        _mv  = market_implied_valuation(deal)
+        _mic = _mv["implied_cap"]
+        _mkt = (f"Market-implied cap for this asset at today's rates and spreads is "
+                f"{_mic:.2%}, so this exit is {(exitc - _mic)*10000:+.0f} bps "
+                f"{'wide of' if exitc > _mic else 'inside'} where the market prices it now.")
+    except Exception:
+        _mkt = ""
+    try:
+        _dn = run_deterministic_dcf(price, noi, loan, hold, rg, eg, max(exitc + 0.0050, 0.030), rate)["irr"]
+        _bs = run_deterministic_dcf(price, noi, loan, hold, rg, eg, max(exitc, 0.030), rate)["irr"]
+        _up = run_deterministic_dcf(price, noi, loan, hold, rg, eg, max(exitc - 0.0050, 0.030), rate)["irr"]
+        _sens = (f"Levered IRR at this exit is {_bs:.1%}. Widen the exit 50 bps and it is "
+                 f"{_dn:.1%}; tighten it 50 bps and it is {_up:.1%} — a "
+                 f"{(_up - _dn)*100:.1f} pt swing on a 100 bp move. ")
+    except Exception:
+        _sens = ""
+    out.append({"level": "ok", "title": "Exit cap basis — state this in the memo",
+                "detail": f"Entry cap {entry:.2%} (NOI ${noi:,.0f} ÷ price ${price:,.0f}). "
+                          f"Exit cap {exitc:.2%} = entry {spread*10000:+.0f} bps, which is the "
+                          f"firm's exit-cap spread setting, not a market observation. {_sens}{_mkt} "
+                          f"An IC will ask what the spread is based on — answer with the hold period, "
+                          f"the asset's age at exit, and where the market prices comparable vintage today."})
+
     if spread < 0:
         impact = ""
         try:
@@ -4615,6 +4649,21 @@ def view_waterfall():
     st.markdown("""<div style="margin-bottom:22px;"><div style="font-size:10px;font-weight:700;color:#1a6fe0;letter-spacing:0.14em;text-transform:uppercase;margin-bottom:6px;">WATERFALL CALC</div><div style="font-family:Outfit,sans-serif;font-size:1.8rem;font-weight:800;letter-spacing:-0.03em;color:#07111f;">LP/GP Waterfall Distribution</div></div>""", unsafe_allow_html=True)
     d = st.session_state.deal_data
 
+    # Run A #6: "doesn't show which property it's on — portfolio or Meridian Court?"
+    if d:
+        st.markdown(
+            f"<div style='display:flex;align-items:center;gap:10px;background:#f0f6ff;"
+            f"border:1px solid #c7dcfb;border-radius:8px;padding:9px 14px;margin-bottom:16px;'>"
+            f"<span style='font-size:9.5px;font-weight:800;color:#1a6fe0;letter-spacing:0.1em;'>"
+            f"MODELLING</span>"
+            f"<span style='font-size:13px;font-weight:700;color:#07111f;'>{d.get('name','Unnamed deal')}</span>"
+            f"<span style='font-size:11.5px;color:#6f8aab;'>{d.get('units',0)} units &middot; "
+            f"${d.get('purchase_price',0)/1e6:.1f}M &middot; single asset, not the portfolio</span></div>",
+            unsafe_allow_html=True)
+    else:
+        st.info("No deal loaded — the figures below are defaults, not a property. "
+                "Load a deal from Master Pipeline to model it.")
+
     col_in, col_out = st.columns([1, 1.6])
 
     with col_in:
@@ -5871,10 +5920,23 @@ def view_stress_test():
 
     st.markdown("<div style='font-size:14px;color:#64748b;margin-bottom:20px;'>Model what happens to every deal simultaneously under rate shocks, rent drops, and recession scenarios.</div>", unsafe_allow_html=True)
 
-    props = st.session_state.properties
-    if not props:
+    all_props = st.session_state.properties
+    if not all_props:
         st.info("Add deals to your pipeline to run stress tests.")
         return
+
+    # ── Scope selector · Run A #5: stress test only ran on the whole portfolio ──
+    _names = ["Entire portfolio"] + [p.get("name", "Unnamed") for p in all_props]
+    _active = st.session_state.get("deal_data") or {}
+    _default = _names.index(_active["name"]) if _active.get("name") in _names else 0
+    _scope = st.selectbox("Stress which assets?", _names, index=_default,
+                          help="Run every deal at once, or isolate a single property.")
+    if _scope == "Entire portfolio":
+        props, _scope_label = all_props, f"the entire portfolio ({len(all_props)} deals)"
+    else:
+        props = [p for p in all_props if p.get("name") == _scope]
+        _scope_label = _scope
+    st.session_state.stress_scope_label = _scope_label
 
     # Custom scenario editor
     with st.expander("⚙️ Customize Scenarios", expanded=False):
@@ -5888,15 +5950,20 @@ def view_stress_test():
             "vacancy_shock": vac_shock, "cap_shock": cap_shock
         }
 
-    if st.button("▶ Run Stress Test Across Portfolio", type="primary"):
-        with st.spinner("Stressing all deals..."):
+    if st.button(f"▶ Run Stress Test — {_scope_label}", type="primary"):
+        with st.spinner(f"Stressing {_scope_label}..."):
             results = run_stress_test(props, STRESS_SCENARIOS)
             st.session_state.stress_results = results
 
     results = st.session_state.get("stress_results", [])
     if not results:
-        st.info("Click **Run Stress Test** to model all scenarios across your portfolio.")
+        st.info(f"Click **Run Stress Test** to model every scenario against {_scope_label}.")
         return
+    st.markdown(
+        f"<div style='font-size:11.5px;color:#6f8aab;border-left:3px solid #1a6fe0;"
+        f"padding:7px 12px;background:#f0f6ff;border-radius:0 6px 6px 0;margin-bottom:14px;'>"
+        f"Results below are for <b>{st.session_state.get('stress_scope_label', _scope_label)}</b>."
+        f"</div>", unsafe_allow_html=True)
 
     # Scenario summary strip — portfolio-level IRR impact
     scenarios = list(STRESS_SCENARIOS.keys())
