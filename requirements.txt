@@ -1,10 +1,18 @@
-plotly
-pydeck
-requests
-openai
-supabase
-openpyxl
-xlrd
-pypdf
-anthropic
-reportlab
+# AIRE — pinned runtime dependencies.
+# Fixes Run A intervention #3 (BREAK): reportlab was never installed, so PDF
+# export failed with "No module named reportlab".
+# With this file in the deploy, delete _install() from app.py (security audit S-6):
+# an app that pip-installs unpinned packages at runtime is a supply-chain question
+# you will be asked and a deployment you cannot reproduce.
+streamlit==1.64.0
+pandas==2.2.3
+numpy==2.1.3
+requests==2.32.3
+plotly==5.24.1
+pydeck==0.9.1
+openai==1.54.4
+anthropic==0.39.0
+supabase==2.10.0
+openpyxl==3.1.5
+reportlab==4.2.5
+pypdf==5.1.0
