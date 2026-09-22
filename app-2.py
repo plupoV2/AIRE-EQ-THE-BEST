@@ -633,9 +633,19 @@ def get_supabase():
         key = st.secrets.get("SUPABASE_KEY", "")
         if not url or not key:
             return None, "Missing SUPABASE_URL or SUPABASE_KEY in secrets"
-        sb = create_client(url, key)
         tok = st.session_state.get("sb_access_token")
         ref = st.session_state.get("sb_refresh_token")
+        # Reuse this SESSION's client instead of building a new one per call.
+        # Every create_client() opens fresh httpx pools; audit_log(), db_load(),
+        # db_load_settings() and load_firm_data() each called this on every
+        # rerun, so sockets and memory accumulated until the container died.
+        # Cached in session_state (per-user), never globally — a shared client
+        # carrying set_session() would be a cross-tenant leak.
+        _cached     = st.session_state.get("_sb_client")
+        _cached_tok = st.session_state.get("_sb_client_token")
+        if _cached is not None and _cached_tok == tok:
+            return _cached, None
+        sb = create_client(url, key)
         if tok and ref:
             try:
                 sb.auth.set_session(tok, ref)
@@ -645,13 +655,21 @@ def get_supabase():
                     st.session_state.sb_refresh_token = s.refresh_token
             except Exception:
                 pass
+        st.session_state._sb_client       = sb
+        st.session_state._sb_client_token = tok
         return sb, None
     except Exception as e:
         return None, str(e)
 
 @st.cache_resource
 def init_openai():
-    return OpenAI(api_key=st.secrets.get("OPENAI_API_KEY", ""))
+    _k = st.secrets.get("OPENAI_API_KEY", "")
+    for _kw in ({"timeout": 90.0, "max_retries": 1}, {}):
+        try:
+            return OpenAI(api_key=_k, **_kw)
+        except TypeError:
+            continue
+    return OpenAI(api_key=_k)
 
 # Keep ai_client as module-level, supabase now fetched fresh per call
 ai_client = init_openai()
@@ -662,10 +680,17 @@ def init_claude():
     key = st.secrets.get("ANTHROPIC_API_KEY", "")
     if not key:
         return None
-    try:
-        return anthropic.Anthropic(api_key=key)
-    except Exception:
-        return None
+    # Hard timeout. Without one the SDK default is 10 minutes; a hung request
+    # blocks the script thread long enough for the platform proxy to drop the
+    # websocket, which Streamlit sees as a brand-new session — i.e. a logout.
+    for _kw in ({"timeout": 90.0, "max_retries": 1}, {}):
+        try:
+            return anthropic.Anthropic(api_key=key, **_kw)
+        except TypeError:
+            continue
+        except Exception:
+            return None
+    return None
 
 claude_client = init_claude()
 
@@ -2107,9 +2132,68 @@ def aire_grade_deal(deal: dict, settings: dict, mc: dict = None) -> dict:
 # the three things an acquisitions professional checks by hand on every deal.
 # ──────────────────────────────────────────────────────────────────────────────
 
+def aire_policy_checks(settings: dict) -> list:
+    """Is the FIRM'S POLICY itself institutionally plausible?
+
+    The risk grade bands every factor against these settings, so a mis-set
+    policy silently flatters or punishes every deal in the pipeline. Benchmark
+    run 2026-09-22: a target IRR left at 8% instead of 15% moved the same deal
+    from 59 (C) to 72 (B) — a full letter grade from one field nobody checked.
+    """
+    out    = []
+    t_irr  = float(settings.get("target_irr", 0.15) or 0.15)
+    max_lv = float(settings.get("max_ltv",    0.70) or 0.70)
+    min_ds = float(settings.get("min_dscr",   1.25) or 1.25)
+    hold   = int(settings.get("hold_period",  5)    or 5)
+
+    if t_irr < 0.10:
+        out.append({"level": "flag", "title": f"Target IRR of {t_irr:.0%} is below institutional norms",
+                    "detail": f"Levered equity targets for value-add and core-plus multifamily "
+                              f"generally run 12–18%. At {t_irr:.0%} the returns factor scores near "
+                              f"full marks for any deal clearing {t_irr*1.35:.1%}, so weak deals grade "
+                              f"well and the screen stops discriminating. Set this to your real "
+                              f"hurdle in Settings — the grade is only as credible as the policy "
+                              f"behind it."})
+    elif t_irr > 0.25:
+        out.append({"level": "flag", "title": f"Target IRR of {t_irr:.0%} is unusually high",
+                    "detail": f"Above 25% levered is opportunistic or development territory. Applied "
+                              f"to stabilised multifamily it will flag essentially every deal, and a "
+                              f"screen that flags everything gets ignored."})
+    else:
+        out.append({"level": "ok", "title": f"Target IRR {t_irr:.0%} — inside institutional range",
+                    "detail": f"Returns are banded {t_irr*0.55:.1%} to {t_irr*1.35:.1%} around this "
+                              f"hurdle. Every grade in the pipeline moves if you change it."})
+
+    if max_lv > 0.75:
+        out.append({"level": "flag", "title": f"Max LTV of {max_lv:.0%} is above agency and most debt-fund limits",
+                    "detail": "Agency multifamily generally caps near 75–80% and most balance-sheet "
+                              "lenders sit lower. A policy limit above what you can actually finance "
+                              "means Leverage Discipline scores full marks on deals no lender will do."})
+    elif max_lv > 0.70:
+        out.append({"level": "watch", "title": f"Max LTV {max_lv:.0%} — at the top of the normal band",
+                    "detail": "Defensible, but confirm it matches what your lenders actually quote "
+                              "today rather than what they quoted in a lower-rate environment."})
+
+    if min_ds < 1.15:
+        out.append({"level": "flag", "title": f"Min DSCR of {min_ds:.2f}x is below lender floors",
+                    "detail": "Agency and most conduit multifamily lenders size to 1.25x. A policy "
+                              "floor beneath the market's floor means AIRE passes deals your lender "
+                              "will decline, and DSCR stops being the binding constraint it really is."})
+    elif min_ds < 1.20:
+        out.append({"level": "watch", "title": f"Min DSCR {min_ds:.2f}x is beneath the common 1.25x floor",
+                    "detail": "Workable for shorter-duration or floating debt. Confirm it matches the "
+                              "structure you actually expect to place."})
+
+    if hold < 3 or hold > 10:
+        out.append({"level": "watch", "title": f"Hold period of {hold} years is outside the typical 3–10",
+                    "detail": "Exit cap, rent growth and reversion assumptions all compound over this "
+                              "horizon, so an unusual hold needs an explicit reason in the memo."})
+    return out
+
+
 def aire_assumption_checks(deal: dict, settings: dict) -> list:
     """Returns [{level, title, detail}] where level is 'flag' | 'watch' | 'ok'."""
-    out = []
+    out = list(aire_policy_checks(settings))
     price = float(deal.get("purchase_price", 0) or 0)
     noi   = float(deal.get("noi_year1", 0) or 0)
     loan  = float(deal.get("debt_amount", 0) or 0)
@@ -2265,13 +2349,14 @@ def render_assumption_panel(deal: dict, settings: dict):
             f"<div style='font-size:12px;color:#3a5278;line-height:1.55;'>{c['detail']}</div></div>")
     st.markdown(
         "<div class='glass-panel'>"
-        "<div class='panel-title'>Assumption Checks — Are the Inputs Defensible?</div>"
+        "<div class='panel-title'>Assumption Checks — Are the Inputs and the Policy Defensible?</div>"
         f"<div style='font-size:12px;color:#6f8aab;margin:-6px 0 14px;'>{summary}</div>"
         + rows +
         "<div style='border-top:1px solid #e4ecf7;padding-top:9px;margin-top:4px;"
         "font-size:10px;color:#94a3b8;line-height:1.5;'>"
         "Separate from the verification certificate. The certificate proves the <b>math</b> is "
-        "correct; these test whether the <b>assumptions</b> are defensible. Different problems."
+        "correct; these test whether the <b>assumptions and your firm's policy settings</b> are "
+        "defensible. Different problems."
         "</div></div>",
         unsafe_allow_html=True)
     return checks
@@ -4295,6 +4380,58 @@ Write 2 concise paragraphs. Professional tone. Include specific metrics."""
 # ──────────────────────────────────────────────────────────────────────────────
 def view_settings():
     render_onboarding_tip("Settings")
+
+    # ── Firm policy sanity ─────────────────────────────────────────────────
+    _pol = aire_policy_checks(st.session_state.settings)
+    _bad = [c for c in _pol if c["level"] in ("flag", "watch")]
+    if _bad:
+        _rows = ""
+        for c in _bad:
+            _col, _bg = ("#991b1b", "#fee2e2") if c["level"] == "flag" else ("#92400e", "#fef9c3")
+            _rows += (f"<div style='border-left:3px solid {_col};background:{_bg}55;"
+                      f"border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:8px;'>"
+                      f"<div style='font-size:13px;font-weight:700;color:#07111f;margin-bottom:3px;'>"
+                      f"{c['title']}</div>"
+                      f"<div style='font-size:12px;color:#3a5278;line-height:1.55;'>{c['detail']}</div></div>")
+        st.markdown("<div class='glass-panel'><div class='panel-title'>Policy Review</div>"
+                    "<div style='font-size:12px;color:#6f8aab;margin:-6px 0 14px;'>These settings band "
+                    "every factor in the risk grade. A mis-set policy re-grades your whole pipeline "
+                    "silently.</div>" + _rows + "</div>", unsafe_allow_html=True)
+
+    # ── Diagnostics ────────────────────────────────────────────────────────
+    with st.expander("Diagnostics — open this if a page crashed"):
+        _err = st.session_state.get("last_error")
+        if _err:
+            st.markdown("**Last error captured in this session:**")
+            st.code(_err, language="text")
+            if st.button("Clear captured error", key="clear_last_error"):
+                st.session_state.last_error = None
+                st.rerun()
+        else:
+            st.markdown("No errors captured in this session.")
+        try:
+            import os as _os, sys as _sys
+            _mem = "unavailable"
+            try:
+                with open("/proc/self/status") as _f:
+                    for _ln in _f:
+                        if _ln.startswith("VmRSS:"):
+                            _mem = _ln.split(":", 1)[1].strip()
+            except Exception:
+                pass
+            _sb = "cached" if st.session_state.get("_sb_client") is not None else "not built"
+            st.markdown(
+                f"- Python `{_sys.version.split()[0]}`\n"
+                f"- Process memory (VmRSS): `{_mem}`\n"
+                f"- Open file descriptors: `{len(_os.listdir('/proc/self/fd'))}`\n"
+                f"- Supabase client: `{_sb}`\n"
+                f"- Claude configured: `{claude_available()}`\n"
+                f"- Deals in session: `{len(st.session_state.get('properties', []))}`")
+            st.caption("If the app logs you out, reopen this straight after signing back in. "
+                       "Memory climbing across reloads points at the container being restarted, "
+                       "not at a Python error.")
+        except Exception as _de:
+            st.caption(f"Diagnostics unavailable: {_de}")
 
     st.markdown("""
     <div style='background:linear-gradient(135deg,#0d2a4a,#0d1f3c);border:1px solid #1a9fd4;
@@ -6735,6 +6872,14 @@ MAX LTV: {settings.get('max_ltv',0.70):.0%}
 
 DEALS:
 """
+    # Cap the payload. A large pipeline built an unbounded prompt, which is both
+    # slow (see timeout above) and eventually rejected by the model.
+    _MAX_DEALS = 40
+    if len(props) > _MAX_DEALS:
+        props = sorted(props, key=lambda x: float(x.get("purchase_price", 0) or 0),
+                       reverse=True)[:_MAX_DEALS]
+        portfolio_summary += (f"(showing the {_MAX_DEALS} largest deals by price; "
+                              f"portfolio totals above cover all deals)\n")
     for p in props:
         cap = p['noi_year1']/p['purchase_price'] if p['purchase_price'] else 0
         debt = p['debt_amount']
@@ -7857,6 +8002,42 @@ def main():
     render_sidebar()
     
     v = st.session_state.current_view
+    try:
+        _dispatch(v)
+    except BaseException as _e:
+        # Never swallow Streamlit's own control-flow signals. st.rerun() and
+        # st.stop() are implemented as exceptions, so catching them breaks
+        # navigation. Match on the class's MODULE rather than its name —
+        # Streamlit has moved and renamed these types across versions.
+        if (isinstance(_e, _STREAMLIT_CONTROL)
+                or type(_e).__module__.split(".")[0] == "streamlit"
+                or type(_e).__name__ in ("RerunException", "StopException", "RerunData")):
+            raise
+        import traceback as _tb
+        _trace = _tb.format_exc()
+        st.session_state.last_error = _trace
+        st.error("Something went wrong rendering this page. Your session is intact "
+                 "and nothing was lost — use the sidebar to go elsewhere, or reload.")
+        with st.expander("Technical detail — copy this if you report the problem"):
+            st.code(_trace, language="text")
+
+# Streamlit signals control flow with exceptions; these must never be caught
+# by the error boundary in main(). Import paths have moved between versions,
+# so every known location is tried and the module check in main() backstops it.
+_STREAMLIT_CONTROL = ()
+for _mod, _names in (
+    ("streamlit.runtime.scriptrunner.exceptions",   ("RerunException", "StopException")),
+    ("streamlit.runtime.scriptrunner.script_runner", ("RerunException", "StopException")),
+    ("streamlit.script_runner",                      ("RerunException", "StopException")),
+):
+    try:
+        _m = __import__(_mod, fromlist=list(_names))
+        _STREAMLIT_CONTROL += tuple(getattr(_m, _n) for _n in _names if hasattr(_m, _n))
+    except Exception:
+        pass
+
+
+def _dispatch(v):
     if   v == "Dashboard":      view_dashboard()
     elif v == "DataRoom":       view_data_room()
     elif v == "AITracker":      view_ai_tracker()
